@@ -343,39 +343,56 @@
         }
     }
 
-    /**
-     * Enquanto aguarda o pareamento, renova o material a cada 8 segundos.
-     *
-     * Nao basta consultar o estado: o QR code do WhatsApp expira em poucos
-     * segundos, entao a tela precisa exibir sempre o mais recente. O endpoint
-     * de inicio devolve CONECTADO assim que o celular parear, encerrando o ciclo.
-     */
+    let ciclosPolling = 0;
+    let falhasPolling = 0;
+
+    /** Enquanto aguarda o pareamento, verifica a conexao a cada 4 segundos. */
     function iniciarPolling() {
         pararPolling();
-        pollingConexao = setInterval(renovarPareamento, 8000);
+        ciclosPolling = 0;
+        falhasPolling = 0;
+        pollingConexao = setInterval(verificarPareamento, 4000);
     }
 
-    async function renovarPareamento() {
+    /**
+     * Ciclo de verificacao durante o pareamento.
+     *
+     * A consulta principal e leve (apenas o estado) e nao regera nada. O QR e
+     * renovado a cada 4 ciclos porque o WhatsApp o expira; o codigo de
+     * pareamento nunca e regerado, sob pena de invalidar o que esta na tela.
+     */
+    async function verificarPareamento() {
+        ciclosPolling++;
         try {
-            // Codigo de pareamento: apenas verifica se ja conectou. Pedir um novo
-            // codigo invalidaria o que o usuario esta digitando na tela.
-            // QR code: pede material novo, porque o WhatsApp expira o anterior.
-            const status = numeroPareamento
-                ? await chamar(`${API}/conexao`)
-                : await chamar(`${API}/conexao/iniciar`, {method: 'POST', body: JSON.stringify({})});
-
-            renderizarConexao(status);
+            const status = await chamar(`${API}/conexao`);
+            falhasPolling = 0;
 
             if (status.estado === 'CONECTADO') {
                 pararPolling();
                 numeroPareamento = null;
                 emPareamento = false;
+                renderizarConexao(status);
                 mostrarAlerta('WhatsApp conectado! Escolha o grupo no passo 2.', 'sucesso');
                 await carregarGrupos();
+                return;
+            }
+
+            if (!numeroPareamento && ciclosPolling % 4 === 0) {
+                const novo = await chamar(`${API}/conexao/iniciar`, {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                renderizarConexao(novo);
             }
         } catch (e) {
-            pararPolling();
-            mostrarAlerta(e.message, 'erro');
+            // Falhas isoladas sao esperadas durante o pareamento, quando a sessao
+            // troca de estado. Desistir na primeira deixava a tela congelada
+            // mesmo apos a conexao ser estabelecida.
+            falhasPolling++;
+            if (falhasPolling >= 3) {
+                pararPolling();
+                mostrarAlerta('Nao foi possivel acompanhar a conexao: ' + e.message, 'erro');
+            }
         }
     }
 
@@ -574,6 +591,12 @@
         document.getElementById('adminToken').value = tokenSalvo;
         document.getElementById('blocoToken').classList.remove('hidden');
     }
+
+    // O pareamento acontece no celular: ao voltar para a aba, reconsulta o
+    // estado imediatamente, sem esperar o proximo ciclo do polling.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) atualizarConexao();
+    });
 
     (async () => {
         await atualizarConexao();
