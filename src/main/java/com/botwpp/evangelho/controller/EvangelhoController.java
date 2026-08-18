@@ -1,12 +1,15 @@
 package com.botwpp.evangelho.controller;
 
+import com.botwpp.evangelho.dto.EnvioManualRequest;
 import com.botwpp.evangelho.dto.RespostaApi;
 import com.botwpp.evangelho.model.Evangelho;
 import com.botwpp.evangelho.service.EnvioEvangelhoService;
 import com.botwpp.evangelho.service.LiturgiaService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,5 +49,15 @@ public class EvangelhoController {
     public ResponseEntity<RespostaApi> recarregar() {
         Evangelho evangelho = liturgiaService.recarregar();
         return ResponseEntity.ok(RespostaApi.ok("Conteudo recarregado da fonte.", evangelho));
+    }
+
+    /**
+     * POST /api/evangelho/enviar — envio avulso para um grupo.
+     * Independe de agendamento e nao altera a programacao automatica.
+     */
+    @PostMapping("/enviar")
+    public ResponseEntity<RespostaApi> enviarAgora(@Valid @RequestBody EnvioManualRequest request) {
+        String status = envioService.enviarAvulso(request.grupoId().trim());
+        return ResponseEntity.ok(RespostaApi.ok(status));
     }
 }

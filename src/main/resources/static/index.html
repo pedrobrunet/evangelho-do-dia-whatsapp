@@ -161,6 +161,38 @@
     </section>
 
     <!-- ============================================================
+         Envio manual — independe de agendamento
+         ============================================================ -->
+    <section id="secaoEnvioManual" class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-6 opacity-50 shadow-sm transition">
+        <h2 class="mb-1 text-lg font-semibold text-slate-900">🚀 Enviar agora</h2>
+        <p class="mb-4 text-sm text-slate-600">
+            Dispara o Evangelho de hoje na hora, sem criar agendamento. Nao interfere na programacao automatica.
+        </p>
+
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="min-w-[200px] flex-1">
+                <label for="grupoManual" class="mb-1 block text-sm font-medium text-slate-700">Grupo</label>
+                <div class="flex gap-2">
+                    <input type="text" id="filtroGrupoManual" placeholder="filtrar..." disabled
+                           class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100">
+                    <select id="grupoManual" disabled
+                            class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100">
+                        <option value="">Conecte o WhatsApp primeiro</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" id="btnEnviarManual" disabled
+                    class="rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+                Enviar agora
+            </button>
+            <button type="button" id="btnPreviaManual"
+                    class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+                Ver previa
+            </button>
+        </div>
+    </section>
+
+    <!-- ============================================================
          Fila de proximos envios
          ============================================================ -->
     <section id="secaoFila" class="mb-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -310,8 +342,10 @@
 
     /** O formulario de agendamento so faz sentido com o WhatsApp conectado. */
     function liberarPassos(conectado) {
-        document.getElementById('secaoAgendamentos').classList.toggle('opacity-50', !conectado);
-        ['grupoId', 'filtroGrupo', 'horarioEnvio', 'btnSalvarAgendamento', 'btnAtualizarGrupos']
+        ['secaoAgendamentos', 'secaoEnvioManual']
+            .forEach(id => document.getElementById(id).classList.toggle('opacity-50', !conectado));
+        ['grupoId', 'filtroGrupo', 'horarioEnvio', 'btnSalvarAgendamento', 'btnAtualizarGrupos',
+            'grupoManual', 'filtroGrupoManual', 'btnEnviarManual']
             .forEach(id => document.getElementById(id).disabled = !conectado);
     }
 
@@ -452,10 +486,18 @@
         }
     }
 
-    /** Preenche o seletor aplicando o filtro digitado — util com centenas de grupos. */
+    /**
+     * Preenche os dois seletores de grupo (agendamento e envio manual),
+     * cada um com seu proprio filtro — util com centenas de grupos.
+     */
     function renderizarGrupos() {
-        const select = document.getElementById('grupoId');
-        const filtro = document.getElementById('filtroGrupo').value.trim().toLowerCase();
+        preencherSeletor('grupoId', 'filtroGrupo');
+        preencherSeletor('grupoManual', 'filtroGrupoManual');
+    }
+
+    function preencherSeletor(idSelect, idFiltro) {
+        const select = document.getElementById(idSelect);
+        const filtro = document.getElementById(idFiltro).value.trim().toLowerCase();
         const selecionado = select.value;
 
         const visiveis = filtro
@@ -485,6 +527,7 @@
     }
 
     document.getElementById('filtroGrupo').addEventListener('input', renderizarGrupos);
+    document.getElementById('filtroGrupoManual').addEventListener('input', renderizarGrupos);
 
     document.getElementById('btnAtualizarGrupos').addEventListener('click', async () => {
         const botao = document.getElementById('btnAtualizarGrupos');
@@ -720,10 +763,44 @@
     setInterval(carregarFila, 300000);
 
     // ===============================================================
+    // Envio manual — avulso, sem passar por agendamento
+    // ===============================================================
+    document.getElementById('btnEnviarManual').addEventListener('click', async () => {
+        const select = document.getElementById('grupoManual');
+        if (!select.value) {
+            mostrarAlerta('Escolha o grupo de destino.', 'erro');
+            return;
+        }
+
+        const nome = select.options[select.selectedIndex].dataset.nome || select.value;
+        if (!confirm(`Enviar o Evangelho de hoje agora para "${nome}"?`)) return;
+
+        const botao = document.getElementById('btnEnviarManual');
+        botao.disabled = true;
+        botao.textContent = 'Enviando...';
+        try {
+            const resposta = await chamar(`${API}/evangelho/enviar`, {
+                method: 'POST',
+                body: JSON.stringify({grupoId: select.value})
+            });
+            mostrarAlerta(resposta.mensagem, 'sucesso');
+        } catch (e) {
+            mostrarAlerta(e.message, 'erro');
+        } finally {
+            botao.disabled = false;
+            botao.textContent = 'Enviar agora';
+        }
+    });
+
+    // ===============================================================
     // Previa
     // ===============================================================
-    document.getElementById('btnPrevia').addEventListener('click', async () => {
-        const botao = document.getElementById('btnPrevia');
+    // Os dois botoes de previa (fila e envio manual) compartilham o mesmo fluxo.
+    ['btnPrevia', 'btnPreviaManual'].forEach(id =>
+        document.getElementById(id).addEventListener('click', () => mostrarPrevia(id)));
+
+    async function mostrarPrevia(idBotao) {
+        const botao = document.getElementById(idBotao);
         botao.disabled = true;
         mostrarAlerta('Buscando o Evangelho de hoje...', 'info');
         try {
@@ -731,12 +808,13 @@
             document.getElementById('previaTexto').textContent = resposta.dados.mensagem;
             mostrar('secaoPrevia', true);
             mostrarAlerta('Previa gerada com sucesso.', 'sucesso');
+            document.getElementById('secaoPrevia').scrollIntoView({behavior: 'smooth', block: 'nearest'});
         } catch (e) {
             mostrarAlerta(e.message, 'erro');
         } finally {
             botao.disabled = false;
         }
-    });
+    }
 
     // ===============================================================
     // Inicializacao

@@ -78,6 +78,27 @@ public class EnvioEvangelhoService {
     }
 
     /**
+     * Envio avulso: dispara o Evangelho de hoje para um grupo sem passar por
+     * um agendamento. Nao registra ultimoEnvio em lugar nenhum, justamente
+     * para nao interferir na programacao automatica — um envio manual as 15h
+     * nao deve impedir o agendamento das 20h de acontecer.
+     *
+     * @return mensagem de status legivel para o painel
+     */
+    public String enviarAvulso(String grupoId) {
+        if (grupoId == null || grupoId.isBlank()) {
+            throw new IllegalArgumentException("Informe o grupo de destino.");
+        }
+
+        Evangelho evangelho = liturgiaService.buscarEvangelhoDoDia();
+        whatsappService.enviarMensagem(grupoId, formatarMensagem(evangelho));
+
+        String status = "Enviado agora (" + evangelho.referencia() + ").";
+        log.info("Envio manual concluido: {}", status);
+        return status;
+    }
+
+    /**
      * Monta a mensagem com formatacao do WhatsApp
      * (*negrito*, _italico_) e emojis para leitura no celular.
      */
