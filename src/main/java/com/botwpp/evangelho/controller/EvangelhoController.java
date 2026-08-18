@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Endpoints de leitura do Evangelho e de disparo manual.
+ * Endpoints de leitura do Evangelho do dia.
+ * O disparo manual vive em AgendamentoController, pois depende de um agendamento.
  */
 @RestController
 @RequestMapping("/api/evangelho")
@@ -45,12 +46,5 @@ public class EvangelhoController {
     public ResponseEntity<RespostaApi> recarregar() {
         Evangelho evangelho = liturgiaService.recarregar();
         return ResponseEntity.ok(RespostaApi.ok("Conteudo recarregado da fonte.", evangelho));
-    }
-
-    /** POST /api/evangelho/enviar — dispara agora, sem esperar o horario agendado. */
-    @PostMapping("/enviar")
-    public ResponseEntity<RespostaApi> enviarAgora() {
-        String status = envioService.enviarParaGrupoConfigurado();
-        return ResponseEntity.ok(RespostaApi.ok(status));
     }
 }

@@ -6,29 +6,41 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
- * Configuracao editavel pelo usuario atraves do frontend.
- * E persistida em disco (ver ConfiguracaoRepository) para sobreviver a reinicios.
+ * Um envio programado: um grupo, um horario diario.
+ *
+ * A aplicacao mantem uma lista destes — o scheduler percorre todos os ativos
+ * a cada minuto e dispara os que chegaram na hora.
  */
-public class ConfiguracaoEnvio {
+public class Agendamento {
 
-    /** Horario diario do disparo, no fuso configurado em app.timezone. */
+    /** Identificador estavel, usado pelo painel para editar e remover. */
+    private String id;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm")
     private LocalTime horarioEnvio = LocalTime.of(8, 0);
 
-    /** ID do grupo (ex.: 120363XXXXXXXXXX@g.us) ou numero no formato 5511999999999. */
+    /** ID do grupo (…@g.us) ou numero no formato internacional. */
     private String grupoId = "";
 
-    /** Nome do grupo escolhido, guardado apenas para exibicao no painel. */
+    /** Nome do grupo, guardado para exibicao no painel. */
     private String grupoNome = "";
 
-    /** Chave geral: quando false, o scheduler nao dispara nada. */
-    private boolean ativo = false;
+    /** Quando false, o scheduler ignora este agendamento. */
+    private boolean ativo = true;
 
-    /** Ultima data efetivamente enviada — evita envio duplicado no mesmo dia. */
+    /** Ultima data efetivamente enviada — garante um envio por dia. */
     private LocalDate ultimoEnvio;
 
-    /** Resultado do ultimo disparo, exibido no frontend. */
+    /** Resultado do ultimo disparo deste agendamento. */
     private String ultimoStatus = "Nenhum envio realizado ainda.";
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public LocalTime getHorarioEnvio() {
         return horarioEnvio;
@@ -76,5 +88,11 @@ public class ConfiguracaoEnvio {
 
     public void setUltimoStatus(String ultimoStatus) {
         this.ultimoStatus = ultimoStatus;
+    }
+
+    /** Rotulo amigavel para logs e mensagens de erro. */
+    public String descricao() {
+        String nome = (grupoNome == null || grupoNome.isBlank()) ? grupoId : grupoNome;
+        return horarioEnvio + " → " + nome;
     }
 }

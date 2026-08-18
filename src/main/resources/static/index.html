@@ -10,16 +10,15 @@
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
 
-<div class="mx-auto max-w-3xl px-4 py-10">
+<div class="mx-auto max-w-4xl px-4 py-10">
 
     <header class="mb-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">📖 Evangelho do Dia</h1>
         <p class="mt-1 text-slate-600">
-            Conecte o WhatsApp, escolha o grupo e defina o horario. O conteudo e buscado automaticamente todos os dias.
+            Conecte o WhatsApp e programe quantos envios quiser. O conteudo e buscado automaticamente todos os dias.
         </p>
     </header>
 
-    <!-- Area de feedback -->
     <div id="alerta" class="mb-6 hidden rounded-lg border px-4 py-3 text-sm"></div>
 
     <!-- Token de admin (aparece so quando o servidor exige) -->
@@ -49,7 +48,6 @@
 
         <p id="descricaoConexao" class="mb-4 text-sm text-slate-600">Consultando o estado da conexao...</p>
 
-        <!-- Acoes de pareamento -->
         <div id="acoesConexao" class="hidden">
             <div class="flex flex-wrap gap-3">
                 <button type="button" id="btnQrCode"
@@ -62,7 +60,6 @@
                 </button>
             </div>
 
-            <!-- Pareamento por codigo: exige o numero do telefone -->
             <div id="blocoNumero" class="mt-4 hidden rounded-lg bg-slate-50 p-4">
                 <label for="numero" class="mb-1 block text-sm font-medium text-slate-700">
                     Numero do WhatsApp (com DDI e DDD)
@@ -81,7 +78,6 @@
             </div>
         </div>
 
-        <!-- Resultado do pareamento -->
         <div id="blocoPareamento" class="mt-5 hidden">
             <div class="flex flex-col items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-start">
                 <img id="qrCode" alt="QR code para conectar o WhatsApp"
@@ -106,7 +102,6 @@
             </div>
         </div>
 
-        <!-- Conectado -->
         <div id="blocoConectado" class="hidden">
             <button type="button" id="btnDesconectar"
                     class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50">
@@ -116,71 +111,67 @@
     </section>
 
     <!-- ============================================================
-         PASSO 2 — Escolher o grupo
+         PASSO 2 — Agendamentos
          ============================================================ -->
-    <section id="secaoGrupo" class="mb-5 rounded-xl border border-slate-200 bg-white p-6 opacity-50 shadow-sm transition">
+    <section id="secaoAgendamentos" class="mb-5 rounded-xl border border-slate-200 bg-white p-6 opacity-50 shadow-sm transition">
         <h2 class="mb-4 flex items-center gap-3 text-lg font-semibold text-slate-900">
             <span class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">2</span>
-            Escolher o grupo
+            Agendamentos
         </h2>
 
-        <div class="flex flex-wrap items-end gap-3">
-            <div class="min-w-[240px] flex-1">
-                <label for="grupoId" class="mb-1 block text-sm font-medium text-slate-700">Grupo de destino</label>
-                <select id="grupoId" disabled
-                        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100">
-                    <option value="">Conecte o WhatsApp primeiro</option>
-                </select>
+        <!-- Formulario de criacao / edicao -->
+        <form id="formAgendamento" class="mb-6 rounded-lg bg-slate-50 p-4">
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="min-w-[200px] flex-1">
+                    <label for="grupoId" class="mb-1 block text-sm font-medium text-slate-700">Grupo</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="filtroGrupo" placeholder="filtrar..." disabled
+                               class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100">
+                        <select id="grupoId" disabled
+                                class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100">
+                            <option value="">Conecte o WhatsApp primeiro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="horarioEnvio" class="mb-1 block text-sm font-medium text-slate-700">Horario</label>
+                    <input type="time" id="horarioEnvio" value="08:00" required disabled
+                           class="rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100">
+                </div>
+
+                <button type="submit" id="btnSalvarAgendamento" disabled
+                        class="rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50">
+                    Adicionar
+                </button>
+                <button type="button" id="btnCancelarEdicao"
+                        class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100">
+                    Cancelar
+                </button>
+                <button type="button" id="btnAtualizarGrupos" disabled
+                        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50">
+                    Recarregar grupos
+                </button>
             </div>
-            <button type="button" id="btnAtualizarGrupos" disabled
-                    class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
-                Atualizar lista
-            </button>
-        </div>
+            <p class="mt-2 text-xs text-slate-500">Fuso: America/Sao_Paulo. Cada agendamento envia uma vez por dia.</p>
+        </form>
+
+        <!-- Lista -->
+        <div id="listaAgendamentos" class="space-y-2"></div>
     </section>
 
     <!-- ============================================================
-         PASSO 3 — Programar o horario
+         Fila de proximos envios
          ============================================================ -->
-    <section id="secaoHorario" class="mb-5 rounded-xl border border-slate-200 bg-white p-6 opacity-50 shadow-sm transition">
-        <h2 class="mb-4 flex items-center gap-3 text-lg font-semibold text-slate-900">
-            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">3</span>
-            Programar o horario
-        </h2>
-
-        <form id="formConfig" class="space-y-5">
-            <div class="max-w-xs">
-                <label for="horarioEnvio" class="mb-1 block text-sm font-medium text-slate-700">
-                    Horario do envio diario
-                </label>
-                <input type="time" id="horarioEnvio" required
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
-                <p class="mt-1 text-xs text-slate-500">Fuso: America/Sao_Paulo</p>
-            </div>
-
-            <label class="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-50 p-3">
-                <input type="checkbox" id="ativo"
-                       class="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500">
-                <span class="text-sm font-medium text-slate-700">Envio automatico ativado</span>
-            </label>
-
-            <div class="flex flex-wrap gap-3">
-                <button type="submit" id="btnSalvar"
-                        class="rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50">
-                    Salvar programacao
-                </button>
-                <button type="button" id="btnPrevia"
-                        class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
-                    Ver previa
-                </button>
-                <button type="button" id="btnEnviar"
-                        class="rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
-                    Enviar agora
-                </button>
-            </div>
-        </form>
-
-        <p id="ultimoStatus" class="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-500"></p>
+    <section id="secaoFila" class="mb-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-slate-900">⏱ Proximos envios</h2>
+            <button type="button" id="btnPrevia"
+                    class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+                Ver previa da mensagem
+            </button>
+        </div>
+        <div id="listaFila" class="space-y-2"></div>
     </section>
 
     <!-- Previa da mensagem -->
@@ -201,10 +192,15 @@
     // ===============================================================
     const API = '/api';
     let pollingConexao = null;
-    /** Numero usado no pareamento por codigo, preservado entre as renovacoes. */
     let numeroPareamento = null;
-    /** Mantem o bloco de pareamento visivel enquanto o usuario conclui no celular. */
     let emPareamento = false;
+    let ciclosPolling = 0;
+    let falhasPolling = 0;
+
+    /** Agendamento em edicao; null significa que o formulario cria um novo. */
+    let edicaoId = null;
+    /** Grupos da conta conectada, mantidos para o filtro do seletor. */
+    let grupos = [];
 
     function headers() {
         const h = {'Content-Type': 'application/json'};
@@ -217,13 +213,11 @@
         return h;
     }
 
-    /** Wrapper unico de fetch: normaliza erro de rede, de auth e de negocio. */
     async function chamar(url, opcoes = {}) {
         const resposta = await fetch(url, {...opcoes, headers: headers()});
         const corpo = await resposta.json().catch(() => ({}));
 
         if (resposta.status === 401) {
-            // O servidor exige token: revela o campo para o usuario informar.
             document.getElementById('blocoToken').classList.remove('hidden');
             throw new Error('Informe o token de administracao para continuar.');
         }
@@ -231,6 +225,17 @@
             throw new Error(corpo.mensagem || `Erro ${resposta.status}`);
         }
         return corpo;
+    }
+
+    /**
+     * Escapa texto vindo de fora antes de injetar no HTML.
+     * Nomes de grupo sao definidos por terceiros no WhatsApp e podem conter
+     * marcacao — sem isso, teriamos XSS no painel.
+     */
+    function esc(texto) {
+        const div = document.createElement('div');
+        div.textContent = texto == null ? '' : String(texto);
+        return div.innerHTML;
     }
 
     // ===============================================================
@@ -253,13 +258,6 @@
         timerAlerta = setTimeout(() => alerta.classList.add('hidden'), 7000);
     }
 
-    function ocupado(estado, ...ids) {
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.disabled = estado;
-        });
-    }
-
     function mostrar(id, visivel) {
         document.getElementById(id).classList.toggle('hidden', !visivel);
     }
@@ -267,15 +265,11 @@
     // ===============================================================
     // PASSO 1 — Conexao
     // ===============================================================
-
-    /** Reflete o estado da conexao na interface e libera os passos seguintes. */
     function renderizarConexao(status) {
         const badge = document.getElementById('badgeConexao');
         document.getElementById('descricaoConexao').textContent = status.descricao;
 
         const conectado = status.estado === 'CONECTADO';
-        // Durante o pareamento o bloco permanece na tela mesmo quando uma
-        // consulta de estado devolve DESCONECTADO — o usuario ainda esta digitando.
         const aguardando = status.estado === 'AGUARDANDO_LEITURA' || (emPareamento && !conectado);
 
         const estilos = {
@@ -292,16 +286,14 @@
         mostrar('blocoConectado', conectado);
         mostrar('blocoPareamento', aguardando);
 
-        // Atualiza QR e codigo apenas quando a resposta traz material novo.
-        // Consultas de estado nao trazem — e apagar a tela faria o codigo
-        // sumir enquanto o usuario o digita.
+        // Atualiza QR e codigo apenas quando a resposta traz material novo:
+        // apagar a tela faria o codigo sumir enquanto o usuario o digita.
         if (aguardando) {
             const qr = document.getElementById('qrCode');
             if (status.qrCodeBase64) {
                 qr.src = status.qrCodeBase64;
                 qr.classList.remove('hidden');
             }
-
             if (status.codigoPareamento) {
                 document.getElementById('codigoPareamento').textContent = status.codigoPareamento;
                 mostrar('blocoCodigo', true);
@@ -316,22 +308,17 @@
         liberarPassos(conectado);
     }
 
-    /** Passos 2 e 3 so ficam utilizaveis apos a conexao. */
+    /** O formulario de agendamento so faz sentido com o WhatsApp conectado. */
     function liberarPassos(conectado) {
-        ['secaoGrupo', 'secaoHorario'].forEach(id => {
-            document.getElementById(id).classList.toggle('opacity-50', !conectado);
-        });
-        ['grupoId', 'btnAtualizarGrupos', 'horarioEnvio', 'ativo',
-            'btnSalvar', 'btnPrevia', 'btnEnviar'].forEach(id => {
-            document.getElementById(id).disabled = !conectado;
-        });
+        document.getElementById('secaoAgendamentos').classList.toggle('opacity-50', !conectado);
+        ['grupoId', 'filtroGrupo', 'horarioEnvio', 'btnSalvarAgendamento', 'btnAtualizarGrupos']
+            .forEach(id => document.getElementById(id).disabled = !conectado);
     }
 
     async function atualizarConexao() {
         try {
             const status = await chamar(`${API}/conexao`);
             renderizarConexao(status);
-
             if (status.estado === 'CONECTADO') {
                 pararPolling();
                 await carregarGrupos();
@@ -343,10 +330,6 @@
         }
     }
 
-    let ciclosPolling = 0;
-    let falhasPolling = 0;
-
-    /** Enquanto aguarda o pareamento, verifica a conexao a cada 4 segundos. */
     function iniciarPolling() {
         pararPolling();
         ciclosPolling = 0;
@@ -354,12 +337,17 @@
         pollingConexao = setInterval(verificarPareamento, 4000);
     }
 
+    function pararPolling() {
+        if (pollingConexao) {
+            clearInterval(pollingConexao);
+            pollingConexao = null;
+        }
+    }
+
     /**
-     * Ciclo de verificacao durante o pareamento.
-     *
-     * A consulta principal e leve (apenas o estado) e nao regera nada. O QR e
-     * renovado a cada 4 ciclos porque o WhatsApp o expira; o codigo de
-     * pareamento nunca e regerado, sob pena de invalidar o que esta na tela.
+     * A consulta principal e leve e nao regera nada. O QR e renovado a cada
+     * quatro ciclos porque o WhatsApp o expira; o codigo de pareamento nunca
+     * e regerado, sob pena de invalidar o que esta na tela.
      */
     async function verificarPareamento() {
         ciclosPolling++;
@@ -372,7 +360,7 @@
                 numeroPareamento = null;
                 emPareamento = false;
                 renderizarConexao(status);
-                mostrarAlerta('WhatsApp conectado! Escolha o grupo no passo 2.', 'sucesso');
+                mostrarAlerta('WhatsApp conectado! Cadastre um agendamento abaixo.', 'sucesso');
                 await carregarGrupos();
                 return;
             }
@@ -386,8 +374,7 @@
             }
         } catch (e) {
             // Falhas isoladas sao esperadas durante o pareamento, quando a sessao
-            // troca de estado. Desistir na primeira deixava a tela congelada
-            // mesmo apos a conexao ser estabelecida.
+            // troca de estado. Desistir na primeira deixava a tela congelada.
             falhasPolling++;
             if (falhasPolling >= 3) {
                 pararPolling();
@@ -396,16 +383,9 @@
         }
     }
 
-    function pararPolling() {
-        if (pollingConexao) {
-            clearInterval(pollingConexao);
-            pollingConexao = null;
-        }
-    }
-
     async function iniciarConexao(numero) {
         numeroPareamento = numero;
-        ocupado(true, 'btnQrCode', 'btnCodigo');
+        ['btnQrCode', 'btnCodigo'].forEach(id => document.getElementById(id).disabled = true);
         mostrarAlerta('Solicitando o pareamento...', 'info');
         try {
             const status = await chamar(`${API}/conexao/iniciar`, {
@@ -427,7 +407,7 @@
         } catch (e) {
             mostrarAlerta(e.message, 'erro');
         } finally {
-            ocupado(false, 'btnQrCode', 'btnCodigo');
+            ['btnQrCode', 'btnCodigo'].forEach(id => document.getElementById(id).disabled = false);
         }
     }
 
@@ -461,101 +441,290 @@
     });
 
     // ===============================================================
-    // PASSO 2 — Grupos
+    // Grupos
     // ===============================================================
     async function carregarGrupos() {
-        const select = document.getElementById('grupoId');
         try {
-            const grupos = await chamar(`${API}/conexao/grupos`);
-            const selecionado = select.value;
-
-            select.innerHTML = grupos.length
-                ? '<option value="">Selecione um grupo</option>'
-                : '<option value="">Nenhum grupo encontrado nesta conta</option>';
-
-            grupos.forEach(grupo => {
-                const opcao = document.createElement('option');
-                opcao.value = grupo.id;
-                opcao.dataset.nome = grupo.nome;
-                opcao.textContent = grupo.participantes
-                    ? `${grupo.nome} (${grupo.participantes} membros)`
-                    : grupo.nome;
-                select.appendChild(opcao);
-            });
-
-            // Preserva a escolha ja salva ao recarregar a lista.
-            if (selecionado) select.value = selecionado;
+            grupos = await chamar(`${API}/conexao/grupos`);
+            renderizarGrupos();
         } catch (e) {
             mostrarAlerta('Nao foi possivel listar os grupos: ' + e.message, 'erro');
         }
     }
 
+    /** Preenche o seletor aplicando o filtro digitado — util com centenas de grupos. */
+    function renderizarGrupos() {
+        const select = document.getElementById('grupoId');
+        const filtro = document.getElementById('filtroGrupo').value.trim().toLowerCase();
+        const selecionado = select.value;
+
+        const visiveis = filtro
+            ? grupos.filter(g => g.nome.toLowerCase().includes(filtro))
+            : grupos;
+
+        select.innerHTML = '';
+        const inicial = document.createElement('option');
+        inicial.value = '';
+        inicial.textContent = visiveis.length
+            ? `Selecione (${visiveis.length} de ${grupos.length})`
+            : 'Nenhum grupo corresponde ao filtro';
+        select.appendChild(inicial);
+
+        visiveis.forEach(grupo => {
+            const opcao = document.createElement('option');
+            opcao.value = grupo.id;
+            opcao.dataset.nome = grupo.nome;
+            // textContent evita interpretar marcacao vinda do nome do grupo.
+            opcao.textContent = grupo.participantes
+                ? `${grupo.nome} (${grupo.participantes})`
+                : grupo.nome;
+            select.appendChild(opcao);
+        });
+
+        if (selecionado) select.value = selecionado;
+    }
+
+    document.getElementById('filtroGrupo').addEventListener('input', renderizarGrupos);
+
     document.getElementById('btnAtualizarGrupos').addEventListener('click', async () => {
-        ocupado(true, 'btnAtualizarGrupos');
+        const botao = document.getElementById('btnAtualizarGrupos');
+        botao.disabled = true;
         await carregarGrupos();
-        ocupado(false, 'btnAtualizarGrupos');
-        mostrarAlerta('Lista de grupos atualizada.', 'sucesso');
+        botao.disabled = false;
+        mostrarAlerta(`${grupos.length} grupos carregados.`, 'sucesso');
     });
 
     // ===============================================================
-    // PASSO 3 — Programacao
+    // PASSO 2 — Agendamentos
     // ===============================================================
-    async function carregarConfiguracao() {
+    async function carregarAgendamentos() {
         try {
-            const config = await chamar(`${API}/configuracao`);
-            document.getElementById('horarioEnvio').value = config.horarioEnvio || '08:00';
-            document.getElementById('ativo').checked = !!config.ativo;
-            document.getElementById('ultimoStatus').textContent = config.ultimoStatus || '';
-
-            if (config.grupoId) {
-                const select = document.getElementById('grupoId');
-                // O grupo salvo pode nao estar na lista ainda (conexao caiu, por exemplo).
-                if (!Array.from(select.options).some(o => o.value === config.grupoId)) {
-                    const opcao = document.createElement('option');
-                    opcao.value = config.grupoId;
-                    opcao.dataset.nome = config.grupoNome || '';
-                    opcao.textContent = (config.grupoNome || config.grupoId) + ' (salvo)';
-                    select.appendChild(opcao);
-                }
-                select.value = config.grupoId;
-            }
+            const lista = await chamar(`${API}/agendamentos`);
+            renderizarAgendamentos(lista);
+            await carregarFila();
         } catch (e) {
-            mostrarAlerta('Nao foi possivel carregar a programacao: ' + e.message, 'erro');
+            mostrarAlerta('Nao foi possivel carregar os agendamentos: ' + e.message, 'erro');
         }
     }
 
-    document.getElementById('formConfig').addEventListener('submit', async (evento) => {
+    function renderizarAgendamentos(lista) {
+        const container = document.getElementById('listaAgendamentos');
+
+        if (!lista.length) {
+            container.innerHTML = `
+                <p class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                    Nenhum agendamento ainda. Escolha um grupo e um horario acima.
+                </p>`;
+            return;
+        }
+
+        container.innerHTML = lista.map(a => `
+            <div class="flex flex-wrap items-center gap-3 rounded-lg border ${a.ativo ? 'border-slate-200' : 'border-slate-200 bg-slate-50'} p-3">
+                <span class="h-2.5 w-2.5 shrink-0 rounded-full ${a.ativo ? 'bg-emerald-500' : 'bg-slate-300'}"
+                      title="${a.ativo ? 'ativo' : 'pausado'}"></span>
+                <span class="font-mono text-lg font-semibold ${a.ativo ? 'text-slate-900' : 'text-slate-400'}">
+                    ${esc(a.horarioEnvio)}
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate font-medium ${a.ativo ? 'text-slate-800' : 'text-slate-400'}">
+                        ${esc(a.grupoNome || a.grupoId)}
+                    </p>
+                    <p class="truncate text-xs text-slate-500">${esc(a.ultimoStatus || '')}</p>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                    <button type="button" data-acao="alternar" data-id="${esc(a.id)}"
+                            class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                        ${a.ativo ? 'Pausar' : 'Ativar'}
+                    </button>
+                    <button type="button" data-acao="editar" data-id="${esc(a.id)}"
+                            class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                        Editar
+                    </button>
+                    <button type="button" data-acao="enviar" data-id="${esc(a.id)}"
+                            class="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                        Enviar agora
+                    </button>
+                    <button type="button" data-acao="remover" data-id="${esc(a.id)}"
+                            class="rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">
+                        Remover
+                    </button>
+                </div>
+            </div>`).join('');
+    }
+
+    /** Delegacao de evento: a lista e recriada a cada atualizacao. */
+    document.getElementById('listaAgendamentos').addEventListener('click', async (evento) => {
+        const botao = evento.target.closest('button[data-acao]');
+        if (!botao) return;
+
+        const {acao, id} = botao.dataset;
+        botao.disabled = true;
+        try {
+            if (acao === 'alternar') {
+                const r = await chamar(`${API}/agendamentos/${id}/alternar`, {method: 'POST'});
+                mostrarAlerta(r.mensagem, 'sucesso');
+            } else if (acao === 'remover') {
+                if (!confirm('Remover este agendamento?')) return;
+                const r = await chamar(`${API}/agendamentos/${id}`, {method: 'DELETE'});
+                mostrarAlerta(r.mensagem, 'sucesso');
+                if (edicaoId === id) cancelarEdicao();
+            } else if (acao === 'enviar') {
+                if (!confirm('Enviar o Evangelho de hoje agora para este grupo?')) return;
+                const r = await chamar(`${API}/agendamentos/${id}/enviar`, {method: 'POST'});
+                mostrarAlerta(r.mensagem, 'sucesso');
+            } else if (acao === 'editar') {
+                iniciarEdicao(id);
+                return;
+            }
+            await carregarAgendamentos();
+        } catch (e) {
+            mostrarAlerta(e.message, 'erro');
+        } finally {
+            botao.disabled = false;
+        }
+    });
+
+    async function iniciarEdicao(id) {
+        try {
+            const lista = await chamar(`${API}/agendamentos`);
+            const alvo = lista.find(a => a.id === id);
+            if (!alvo) return;
+
+            edicaoId = id;
+            document.getElementById('horarioEnvio').value = alvo.horarioEnvio;
+
+            // O grupo salvo pode nao estar na lista atual (conexao trocada).
+            const select = document.getElementById('grupoId');
+            if (!Array.from(select.options).some(o => o.value === alvo.grupoId)) {
+                const opcao = document.createElement('option');
+                opcao.value = alvo.grupoId;
+                opcao.dataset.nome = alvo.grupoNome || '';
+                opcao.textContent = (alvo.grupoNome || alvo.grupoId) + ' (salvo)';
+                select.appendChild(opcao);
+            }
+            select.value = alvo.grupoId;
+
+            document.getElementById('btnSalvarAgendamento').textContent = 'Salvar alteracoes';
+            mostrar('btnCancelarEdicao', true);
+            document.getElementById('formAgendamento').scrollIntoView({behavior: 'smooth', block: 'center'});
+        } catch (e) {
+            mostrarAlerta(e.message, 'erro');
+        }
+    }
+
+    function cancelarEdicao() {
+        edicaoId = null;
+        document.getElementById('btnSalvarAgendamento').textContent = 'Adicionar';
+        mostrar('btnCancelarEdicao', false);
+        document.getElementById('grupoId').value = '';
+    }
+
+    document.getElementById('btnCancelarEdicao').addEventListener('click', cancelarEdicao);
+
+    document.getElementById('formAgendamento').addEventListener('submit', async (evento) => {
         evento.preventDefault();
 
         const select = document.getElementById('grupoId');
         if (!select.value) {
-            mostrarAlerta('Escolha o grupo de destino no passo 2.', 'erro');
+            mostrarAlerta('Escolha o grupo de destino.', 'erro');
             return;
         }
 
-        ocupado(true, 'btnSalvar');
+        const botao = document.getElementById('btnSalvarAgendamento');
+        botao.disabled = true;
         try {
             const opcao = select.options[select.selectedIndex];
-            const resposta = await chamar(`${API}/configuracao`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    horarioEnvio: document.getElementById('horarioEnvio').value,
-                    grupoId: select.value,
-                    grupoNome: opcao.dataset.nome || opcao.textContent,
-                    ativo: document.getElementById('ativo').checked
-                })
+            const corpo = JSON.stringify({
+                horarioEnvio: document.getElementById('horarioEnvio').value,
+                grupoId: select.value,
+                grupoNome: opcao.dataset.nome || opcao.textContent,
+                ativo: true
             });
+
+            const resposta = edicaoId
+                ? await chamar(`${API}/agendamentos/${edicaoId}`, {method: 'PUT', body: corpo})
+                : await chamar(`${API}/agendamentos`, {method: 'POST', body: corpo});
+
             mostrarAlerta(resposta.mensagem, 'sucesso');
-            await carregarConfiguracao();
+            cancelarEdicao();
+            await carregarAgendamentos();
         } catch (e) {
             mostrarAlerta(e.message, 'erro');
         } finally {
-            ocupado(false, 'btnSalvar');
+            botao.disabled = false;
         }
     });
 
+    // ===============================================================
+    // Fila de proximos envios
+    // ===============================================================
+    let fila = [];
+
+    async function carregarFila() {
+        try {
+            fila = await chamar(`${API}/agendamentos/fila`);
+            renderizarFila();
+        } catch (e) {
+            document.getElementById('listaFila').innerHTML =
+                `<p class="text-sm text-red-600">${esc(e.message)}</p>`;
+        }
+    }
+
+    /** Converte minutos restantes em algo legivel: "em 3h 20min". */
+    function formatarEspera(minutos) {
+        if (minutos <= 0) return 'a qualquer momento';
+        const horas = Math.floor(minutos / 60);
+        const resto = minutos % 60;
+        if (horas === 0) return `em ${resto}min`;
+        if (resto === 0) return `em ${horas}h`;
+        return `em ${horas}h ${resto}min`;
+    }
+
+    function renderizarFila() {
+        const container = document.getElementById('listaFila');
+
+        if (!fila.length) {
+            container.innerHTML = `
+                <p class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                    Nenhum envio programado. Crie um agendamento ativo para ver a fila.
+                </p>`;
+            return;
+        }
+
+        const agora = new Date();
+        container.innerHTML = fila.map((item, indice) => {
+            // Recalcula no cliente para a contagem nao congelar entre requisicoes.
+            const quando = new Date(item.quando);
+            const minutos = Math.max(0, Math.round((quando - agora) / 60000));
+            const dia = item.hoje ? 'hoje' : 'amanha';
+            const hora = quando.toTimeString().slice(0, 5);
+            const proximo = indice === 0;
+
+            return `
+                <div class="flex flex-wrap items-center gap-3 rounded-lg border ${proximo ? 'border-sky-200 bg-sky-50' : 'border-slate-200'} p-3">
+                    <span class="rounded-md ${proximo ? 'bg-sky-600 text-white' : 'bg-slate-200 text-slate-700'} px-2 py-1 font-mono text-sm font-semibold">
+                        ${esc(hora)}
+                    </span>
+                    <span class="text-sm text-slate-500">${dia}</span>
+                    <p class="min-w-0 flex-1 truncate font-medium text-slate-800">${esc(item.grupoNome)}</p>
+                    <span class="text-sm font-semibold ${proximo ? 'text-sky-700' : 'text-slate-500'}">
+                        ${formatarEspera(minutos)}
+                    </span>
+                </div>`;
+        }).join('');
+    }
+
+    // A contagem regressiva vive no cliente; o servidor so e consultado
+    // periodicamente para captar agendamentos alterados em outra aba.
+    setInterval(renderizarFila, 30000);
+    setInterval(carregarFila, 300000);
+
+    // ===============================================================
+    // Previa
+    // ===============================================================
     document.getElementById('btnPrevia').addEventListener('click', async () => {
-        ocupado(true, 'btnPrevia');
+        const botao = document.getElementById('btnPrevia');
+        botao.disabled = true;
         mostrarAlerta('Buscando o Evangelho de hoje...', 'info');
         try {
             const resposta = await chamar(`${API}/evangelho/previa`);
@@ -565,21 +734,7 @@
         } catch (e) {
             mostrarAlerta(e.message, 'erro');
         } finally {
-            ocupado(false, 'btnPrevia');
-        }
-    });
-
-    document.getElementById('btnEnviar').addEventListener('click', async () => {
-        if (!confirm('Enviar o Evangelho de hoje agora para o grupo escolhido?')) return;
-        ocupado(true, 'btnEnviar');
-        try {
-            const resposta = await chamar(`${API}/evangelho/enviar`, {method: 'POST'});
-            mostrarAlerta(resposta.mensagem, 'sucesso');
-            await carregarConfiguracao();
-        } catch (e) {
-            mostrarAlerta(e.message, 'erro');
-        } finally {
-            ocupado(false, 'btnEnviar');
+            botao.disabled = false;
         }
     });
 
@@ -592,15 +747,13 @@
         document.getElementById('blocoToken').classList.remove('hidden');
     }
 
-    // O pareamento acontece no celular: ao voltar para a aba, reconsulta o
-    // estado imediatamente, sem esperar o proximo ciclo do polling.
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) atualizarConexao();
     });
 
     (async () => {
         await atualizarConexao();
-        await carregarConfiguracao();
+        await carregarAgendamentos();
     })();
 </script>
 </body>

@@ -5,13 +5,11 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Payload aceito pelo endpoint PUT /api/configuracao.
- *
- * No fluxo do painel, grupoId e grupoNome vem do seletor alimentado pela
- * conexao ativa — o usuario nao digita identificadores manualmente.
- * O horario chega como "HH:mm", formato nativo do input type="time".
+ * Payload de criacao e edicao de um agendamento.
+ * O grupo vem do seletor alimentado pela conexao ativa — o usuario
+ * nao digita identificadores manualmente.
  */
-public record ConfiguracaoRequest(
+public record AgendamentoRequest(
 
         @NotBlank(message = "Informe o horario de envio.")
         @Pattern(regexp = "^([01][0-9]|2[0-3]):[0-5][0-9]$", message = "Horario deve estar no formato HH:mm.")
@@ -22,7 +20,6 @@ public record ConfiguracaoRequest(
                 message = "Destino invalido. Use apenas numeros, letras, @, ponto, hifen ou underline.")
         String grupoId,
 
-        /** Somente exibicao; nao participa do envio. */
         @Size(max = 120, message = "Nome do grupo muito longo.")
         String grupoNome,
 

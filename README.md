@@ -1,15 +1,18 @@
 # Evangelho do Dia — Bot para WhatsApp
 
-Aplicação Spring Boot que envia o Evangelho do dia para um grupo de WhatsApp em um horário programado. O usuário conecta o WhatsApp pelo próprio painel (QR code ou código de pareamento), escolhe o grupo numa lista e define o horário — o conteúdo é buscado automaticamente todos os dias.
+Aplicação Spring Boot que envia o Evangelho do dia para grupos de WhatsApp em horários programados. O usuário conecta o WhatsApp pelo próprio painel (QR code ou código de pareamento) e cadastra quantos agendamentos quiser — o conteúdo é buscado automaticamente todos os dias.
 
 ## Fluxo de uso
 
 ```
-1. Conectar o WhatsApp   →  QR code ou código de pareamento, direto no painel
-2. Escolher o grupo      →  lista carregada da conta conectada, sem digitar IDs
-3. Programar o horário   →  único campo que o usuário define
-                            (o conteúdo vem da API de liturgia)
+1. Conectar o WhatsApp    →  QR code ou código de pareamento, direto no painel
+2. Cadastrar agendamentos →  grupo (lista da conta conectada) + horário
+                             quantos quiser: 07h no #geral, 12h no #mentorias…
+3. Acompanhar a fila      →  próximos disparos, ordenados, com contagem regressiva
+                             (o conteúdo vem sozinho da API de liturgia)
 ```
+
+Cada agendamento dispara **uma vez por dia**, no seu horário, e pode ser pausado, editado, removido ou disparado na hora pelo botão "Enviar agora".
 
 ## Stack
 
@@ -63,23 +66,25 @@ src/main/java/com/botwpp/evangelho/
 │   ├── WhatsappProperties.java      # prefixo "whatsapp"
 │   └── TokenAdminFilter.java        # protege /api/** com X-Admin-Token
 ├── controller/
+│   ├── AgendamentoController.java   # CRUD dos agendamentos + fila
 │   ├── ConexaoController.java       # QR code, pareamento, status e grupos
-│   ├── ConfiguracaoController.java  # GET/PUT /api/configuracao
-│   ├── EvangelhoController.java     # prévia, recarregar e envio manual
+│   ├── EvangelhoController.java     # conteúdo do dia e prévia
 │   └── TratadorDeErros.java         # @RestControllerAdvice
 ├── dto/
-│   ├── ConfiguracaoRequest.java     # payload validado com Bean Validation
+│   ├── AgendamentoRequest.java      # payload validado com Bean Validation
+│   ├── ProximoEnvio.java            # uma entrada da fila
 │   └── RespostaApi.java             # envelope {sucesso, mensagem, dados}
 ├── model/
-│   ├── ConfiguracaoEnvio.java       # horário, destino, ativo, último envio
+│   ├── Agendamento.java             # grupo + horário + ativo + último envio
 │   ├── Evangelho.java               # record com o texto do dia
 │   ├── Grupo.java                   # grupo disponível na conta conectada
 │   └── StatusConexao.java           # estado do pareamento + QR/código
 ├── repository/
-│   └── ConfiguracaoRepository.java  # persistência em JSON (data/configuracao.json)
+│   └── AgendamentoRepository.java   # persistência em JSON (data/agendamentos.json)
 ├── scheduler/
-│   └── EnvioScheduler.java          # cron a cada minuto + guarda de idempotência
+│   └── EnvioScheduler.java          # cron a cada minuto, percorre os ativos
 └── service/
+    ├── AgendamentoService.java      # regras dos agendamentos e cálculo da fila
     ├── EvolutionApiClient.java      # cliente HTTP único da Evolution API
     ├── ConexaoWhatsappService.java  # instância, QR code, status e grupos
     ├── LiturgiaService.java         # scraping JSoup + fallback via API
@@ -88,7 +93,7 @@ src/main/java/com/botwpp/evangelho/
 
 src/main/resources/
 ├── application.yml
-└── static/index.html                # painel de 3 passos
+└── static/index.html                # painel: conexão, agendamentos e fila
 
 whatsapp-bridge/                     # opcional: alternativa Node à Evolution API
 ├── server.js                        # Baileys + Express, mesmo contrato HTTP
@@ -121,24 +126,42 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 | `DELETE` | `/api/conexao` | Encerra a sessão |
 | `GET` | `/api/conexao/grupos` | Grupos da conta conectada, em ordem alfabética |
 
-### Programação e conteúdo
+### Agendamentos e fila
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/configuracao` | Estado atual (horário, grupo, último envio) |
-| `PUT` | `/api/configuracao` | Salva `{horarioEnvio, grupoId, grupoNome, ativo}` |
+| `GET` | `/api/agendamentos` | Lista os agendamentos, ordenados por horário |
+| `POST` | `/api/agendamentos` | Cria `{horarioEnvio, grupoId, grupoNome, ativo}` |
+| `PUT` | `/api/agendamentos/{id}` | Edita horário, grupo ou estado |
+| `POST` | `/api/agendamentos/{id}/alternar` | Pausa ou reativa |
+| `DELETE` | `/api/agendamentos/{id}` | Remove |
+| `POST` | `/api/agendamentos/{id}/enviar` | Dispara este agendamento agora |
+| `GET` | `/api/agendamentos/fila` | Próximos disparos, do mais próximo ao mais distante |
+
+### Conteúdo
+
+| Método | Rota | Descrição |
+|---|---|---|
 | `GET` | `/api/evangelho/hoje` | Evangelho do dia estruturado |
 | `GET` | `/api/evangelho/previa` | Mensagem já formatada para o WhatsApp |
 | `POST` | `/api/evangelho/recarregar` | Limpa o cache e rebusca na fonte |
-| `POST` | `/api/evangelho/enviar` | Dispara o envio imediatamente |
 
 Exemplo:
 
 ```bash
-curl -X PUT http://localhost:8081/api/configuracao \
+curl -X POST http://localhost:8081/api/agendamentos \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: $ADMIN_TOKEN" \
   -d '{"horarioEnvio":"08:00","grupoId":"120363000000000000@g.us","grupoNome":"Paroquia","ativo":true}'
+```
+
+A fila devolve o instante absoluto de cada disparo, e o painel calcula a contagem regressiva no cliente:
+
+```json
+[
+  {"grupoNome":"#NemTodoDomingoTem!","quando":"2026-08-18T20:00:00","emMinutos":191,"hoje":true},
+  {"grupoNome":"#geral","quando":"2026-08-19T07:00:00","emMinutos":851,"hoje":false}
+]
 ```
 
 ## Segurança
@@ -152,7 +175,8 @@ Este repositório é público. Pontos observados no código:
 - **As credenciais da sessão pareada** (`whatsapp-bridge/sessoes/`) estão no `.gitignore` e devem ser tratadas como segredo: quem copia essa pasta assume a conta conectada.
 - **Sem vazamento de detalhe interno.** `include-stacktrace: never` e o `TratadorDeErros` devolvem mensagens curtas; o detalhe fica no log.
 - **Logs sem PII.** O ID do grupo é mascarado antes de ser logado; a API key nunca é registrada.
-- **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `ConfiguracaoRequest`.
+- **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `AgendamentoRequest`.
+- **Sem XSS no painel.** Nomes de grupo são definidos por terceiros no WhatsApp e passam por escape antes de ir para o HTML.
 
 Um painel conectado envia mensagens em nome do WhatsApp pareado. Antes de expor na internet: defina `ADMIN_TOKEN`, use um proxy com TLS e restrinja a origem do tráfego.
 
@@ -162,9 +186,10 @@ Um painel conectado envia mensagens em nome do WhatsApp pareado. Antes de expor 
 mvn test
 ```
 
-14 testes cobrindo:
+23 testes cobrindo:
 
-- **Scheduler** — horário atingido, desativado, envio duplicado no mesmo dia, janela de tolerância e resiliência a falha, com `Clock` fixo.
+- **Scheduler** — horário atingido, pausado, envio duplicado no mesmo dia, janela de tolerância, disparo seletivo entre vários agendamentos e falha de um sem travar os demais, com `Clock` fixo.
+- **Fila** — disparo hoje x amanhã, janela de tolerância, exclusão de pausados, ordenação e fallback para o ID quando não há nome do grupo.
 - **Conexão** — parsing das respostas da Evolution API nos dois formatos conhecidos, normalização do QR code em data URI, Evolution fora do ar, e listagem/ordenação de grupos.
 
 ## Observações sobre o conteúdo
