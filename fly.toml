@@ -13,6 +13,8 @@ primary_region = "gru"  # Sao Paulo: menor latencia e mesmo fuso da liturgia
 [env]
   DATA_DIR = "/data"
   APP_AGENDAMENTOS_FILE = "/data/agendamentos.json"
+  # Contas e hashes de senha: fora do volume, todo cadastro morre no deploy.
+  APP_USUARIOS_FILE = "/data/usuarios.json"
   APP_TIMEZONE = "America/Sao_Paulo"
   WHATSAPP_PROVIDER = "EVOLUTION"
   WHATSAPP_API_URL = "http://127.0.0.1:8080"

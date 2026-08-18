@@ -22,8 +22,6 @@ app:
   arquivo-configuracao: ${APP_CONFIG_FILE:data/configuracao.json}
   liturgia-url: ${LITURGIA_URL:https://liturgiadiaria.cancaonova.com/pp/}
   liturgia-api-url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}
-  # SEGURANCA: defina ADMIN_TOKEN antes de expor a aplicacao na internet.
-  admin-token: ${ADMIN_TOKEN:}
 
 whatsapp:
   # EVOLUTION -> POST {api-url}/message/sendText/{instancia}

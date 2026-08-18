@@ -107,7 +107,16 @@ src/main/java/com/botwpp/evangelho/
 
 src/main/resources/
 ├── application.yml
-└── static/index.html                # painel: conexão, agendamentos e fila
+└── static/index.html                # painel: login, conexão, agendamentos e fila
+
+src/test/java/com/botwpp/evangelho/
+├── AgendamentoServiceTest.java      # cálculo da fila
+├── AutenticacaoServiceTest.java     # cadastro e login
+├── ConexaoWhatsappServiceTest.java  # respostas da Evolution API
+├── EnvioSchedulerTest.java          # disparo por horário e por conta
+├── RegistroRequestTest.java         # validação do cadastro
+└── repository/
+    └── UsuarioRepositoryTest.java   # contas em disco entre reinícios
 
 whatsapp-bridge/                     # opcional: alternativa Node à Evolution API
 ├── server.js                        # Baileys + Express, mesmo contrato HTTP
@@ -122,6 +131,7 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 |---|---|
 | `SERVER_PORT` | Porta HTTP do painel (padrão 8081) |
 | `APP_TIMEZONE` | Fuso do agendamento (padrão America/Sao_Paulo) |
+| `APP_USUARIOS_FILE` | Arquivo das contas (padrão `data/usuarios.json`); contém hashes de senha |
 | `RESEND_API_KEY` | Chave da Resend; vazia deixa os e-mails apenas no log |
 | `EMAIL_REMETENTE` | Remetente dos e-mails |
 | `EMAIL_URL_PAINEL` | URL usada nos links dos e-mails |
@@ -174,12 +184,15 @@ Exceto as três rotas de autenticação, toda a API exige sessão. O cookie é d
 | `GET` | `/api/evangelho/previa` | Mensagem já formatada para o WhatsApp |
 | `POST` | `/api/evangelho/recarregar` | Limpa o cache e rebusca na fonte |
 
-Exemplo:
+Exemplo — o login guarda o cookie de sessão, e as chamadas seguintes o reenviam:
 
 ```bash
-curl -X POST http://localhost:8081/api/agendamentos \
+curl -c sessao.txt -X POST http://localhost:8081/api/auth/login \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -d '{"email":"voce@exemplo.com","senha":"sua-senha"}'
+
+curl -b sessao.txt -X POST http://localhost:8081/api/agendamentos \
+  -H "Content-Type: application/json" \
   -d '{"horarioEnvio":"08:00","grupoId":"120363000000000000@g.us","grupoNome":"Paroquia","ativo":true}'
 ```
 
@@ -197,7 +210,7 @@ A fila devolve o instante absoluto de cada disparo, e o painel calcula a contage
 Este repositório é público. Pontos observados no código:
 
 - **Nenhum segredo versionado.** `WHATSAPP_API_KEY` e `RESEND_API_KEY` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
-- **A API nunca devolve credenciais.** `/api/configuracao` expõe somente horário, grupo e status.
+- **A API nunca devolve credenciais.** O modelo `Usuario` guarda o hash da senha, mas os controllers respondem com `UsuarioResponse`, que só carrega id, nome e e-mail.
 - **Toda a API exige sessão autenticada.** Só `/api/auth/registrar`, `/api/auth/login` e `/api/auth/eu` ficam abertas — são justamente as que criam a sessão.
 - **Isolamento entre contas.** O id do dono vem sempre da sessão, nunca do payload, e o repositório filtra por ele: um id de agendamento vazado não permite ler, editar nem remover de outra conta.
 - **Senhas com BCrypt.** A senha em texto puro nunca é armazenada. Login com e-mail inexistente compara contra um hash fictício, para que o tempo de resposta não revele quais e-mails têm conta.
@@ -206,7 +219,7 @@ Este repositório é público. Pontos observados no código:
 - **As credenciais da sessão pareada** (`whatsapp-bridge/sessoes/`) estão no `.gitignore` e devem ser tratadas como segredo: quem copia essa pasta assume a conta conectada.
 - **Sem vazamento de detalhe interno.** `include-stacktrace: never` e o `TratadorDeErros` devolvem mensagens curtas; o detalhe fica no log.
 - **Logs sem PII.** O ID do grupo é mascarado antes de ser logado; a API key nunca é registrada.
-- **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `AgendamentoRequest`.
+- **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `AgendamentoRequest`; nome, e-mail e senha, no `RegistroRequest`. O limite de 100 caracteres da senha evita o custo de hashear entradas gigantes.
 - **Sem XSS no painel.** Nomes de grupo são definidos por terceiros no WhatsApp e passam por escape antes de ir para o HTML.
 
 Um painel conectado envia mensagens em nome do WhatsApp pareado. Ao expor na internet, use um proxy com TLS — a sessão viaja em cookie e sem HTTPS pode ser interceptada.
@@ -217,12 +230,17 @@ Um painel conectado envia mensagens em nome do WhatsApp pareado. Ao expor na int
 mvn test
 ```
 
-25 testes cobrindo:
+44 testes cobrindo:
 
 - **Scheduler** — horário atingido, pausado, envio duplicado no mesmo dia, janela de tolerância, disparo seletivo entre vários agendamentos e falha de um sem travar os demais, com `Clock` fixo.
 - **Isolamento** — cada envio sai pela sessão do dono; agendamento órfão de conta removida é ignorado.
 - **Fila** — disparo hoje x amanhã, janela de tolerância, exclusão de pausados, ordenação e fallback para o ID quando não há nome do grupo.
 - **Conexão** — parsing das respostas da Evolution API nos dois formatos conhecidos, normalização do QR code em data URI, Evolution fora do ar, e listagem/ordenação de grupos.
+- **Cadastro e login** — senha guardada só em hash, e-mail normalizado, instância de WhatsApp própria por conta, recusa de e-mail já usado em qualquer caixa, cadastro concluído mesmo com o provedor de e-mail fora do ar, e a igualdade das mensagens de erro do login.
+- **Contas em disco** — gravação e recarga após reinício, busca sem distinguir maiúsculas, arquivo ausente ou corrompido sem derrubar a aplicação.
+- **Validação do cadastro** — e-mail colado com espaços é aceito, e-mail inválido continua recusado, senha nunca sofre trim.
+
+Os testes de conta foram conferidos por mutação: cada um foi validado quebrando o código de propósito, para garantir que acusa a regressão em vez de passar por acaso.
 
 ## Observações sobre o conteúdo
 
@@ -238,6 +256,17 @@ A aplicação precisa de um **processo permanente**: o `@Scheduled` dispara nos 
 
 O `Dockerfile` sobe o painel e o bridge no mesmo container. O bridge escuta apenas em `127.0.0.1:8080`, alcançável só pelo painel; nada dele fica exposto.
 
+### Fly.io
+
+O `fly.toml` já vem configurado: região `gru`, uma única máquina, volume em `/data` e `auto_stop_machines = false` — a máquina não pode hibernar, ou o WhatsApp derruba o aparelho conectado e os agendamentos param de disparar em silêncio.
+
+```bash
+fly launch --no-deploy                       # reaproveita o fly.toml do repositório
+fly volumes create dados --size 1 --region gru
+fly secrets set WHATSAPP_API_KEY=<chave forte> RESEND_API_KEY=<chave da Resend>
+fly deploy
+```
+
 ### Railway
 
 ```bash
@@ -249,7 +278,7 @@ railway domain               # gera a URL pública
 
 Depois, no painel do Railway:
 
-1. **Volume** — monte um volume em `/data`. Sem ele, as credenciais da sessão e os agendamentos somem a cada deploy, e você precisa parear de novo.
+1. **Volume** — monte um volume em `/data`. Sem ele, as contas, os agendamentos e as credenciais da sessão somem a cada deploy, e todo mundo precisa se cadastrar e parear de novo.
 2. **Variáveis** — `WHATSAPP_API_KEY` (qualquer valor forte; usada só entre painel e bridge dentro do container) e `RESEND_API_KEY` para o envio de e-mails.
 3. **Réplicas: 1.** Já vem fixo em `railway.json`. Com duas réplicas você teria duas sessões do WhatsApp e mensagens duplicadas em cada grupo.
 
@@ -260,10 +289,19 @@ Depois, no painel do Railway:
 | Variável | Valor |
 |---|---|
 | `WHATSAPP_API_KEY` | chave forte, compartilhada entre painel e bridge |
-| `ADMIN_TOKEN` | exigido no header `X-Admin-Token`; vazio deixa a API aberta |
+| `RESEND_API_KEY` | chave da Resend; sem ela o e-mail de boas-vindas só vai para o log |
+| `EMAIL_REMETENTE` | remetente verificado na Resend |
+| `EMAIL_URL_PAINEL` | URL pública do painel, usada nos links dos e-mails |
 | `DATA_DIR` | `/data` (padrão da imagem) |
 | `APP_TIMEZONE` | `America/Sao_Paulo` |
 
+`APP_AGENDAMENTOS_FILE` e `APP_USUARIOS_FILE` já apontam para `/data` na imagem. Se você sobrescrever qualquer uma delas, mantenha o caminho **dentro do volume** — fora dele, o arquivo nasce no container e some no deploy seguinte, levando junto todas as contas cadastradas.
+
 ### Antes de expor publicamente
 
-Quem alcança a URL sem `ADMIN_TOKEN` pode listar seus grupos, disparar mensagens em nome do WhatsApp pareado e derrubar a sessão. Defina `ADMIN_TOKEN` assim que sair da fase de testes.
+O acesso é por conta: quem não tem login não passa do `SessaoFilter`. Duas providências continuam necessárias:
+
+- **HTTPS obrigatório.** A sessão viaja em cookie; sem TLS, qualquer intermediário na rede pode capturá-lo e assumir a conta. Fly.io e Railway já entregam TLS no domínio que geram; num proxy próprio, configure-o.
+- **Volume persistente montado.** Sem ele, contas e pareamento se perdem a cada deploy.
+
+Qualquer pessoa pode criar uma conta na URL pública. O painel não tem cadastro por convite nem confirmação de e-mail — se a instância for só sua, mantenha a URL discreta ou coloque uma camada de autenticação no proxy.
