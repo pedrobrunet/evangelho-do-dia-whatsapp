@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: evangelho-do-dia
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:8081}
+  # Em producao, mantenha atras de um proxy com TLS.
+  error:
+    include-stacktrace: never
+    include-message: never
+
+app:
+  timezone: ${APP_TIMEZONE:America/Sao_Paulo}
+  arquivo-configuracao: ${APP_CONFIG_FILE:data/configuracao.json}
+  liturgia-url: ${LITURGIA_URL:https://liturgiadiaria.cancaonova.com/pp/}
+  liturgia-api-url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}
+  # SEGURANCA: defina ADMIN_TOKEN antes de expor a aplicacao na internet.
+  admin-token: ${ADMIN_TOKEN:}
+
+whatsapp:
+  # EVOLUTION -> POST {api-url}/message/sendText/{instancia}
+  # WEBHOOK   -> POST {api-url} com {"destino": "...", "mensagem": "..."}
+  provider: ${WHATSAPP_PROVIDER:EVOLUTION}
+  api-url: ${WHATSAPP_API_URL:http://localhost:8080}
+  instancia: ${WHATSAPP_INSTANCE:default}
+  # SEGURANCA: nunca versione esta chave. Use variavel de ambiente ou .env local.
+  api-key: ${WHATSAPP_API_KEY:}
+  # true = apenas registra no log, sem chamar a API externa.
+  simular: ${WHATSAPP_SIMULAR:true}
+
+logging:
+  level:
+    com.botwpp.evangelho: INFO

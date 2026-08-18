@@ -1,0 +1,33 @@
+# Build
+target/
+*.jar
+*.war
+*.class
+
+# Dados persistidos em runtime (contem o ID do grupo de destino)
+data/
+
+# Segredos — nunca versionar
+.env
+.env.local
+*.env
+application-local.yml
+application-local.properties
+src/main/resources/application-prod.yml
+
+# Logs
+*.log
+logs/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+nbproject/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
