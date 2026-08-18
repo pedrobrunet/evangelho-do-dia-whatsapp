@@ -13,11 +13,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * Orquestra o caso de uso "enviar o Evangelho do dia" para um agendamento:
- * busca o texto, formata a mensagem e delega o envio.
+ * Orquestra o caso de uso "enviar o Evangelho do dia": busca o texto, formata
+ * a mensagem e delega o envio pela sessao de WhatsApp do dono.
  *
  * Fica entre o scheduler e os services de infraestrutura para que o disparo
- * manual (botao "Enviar agora") e o automatico compartilhem a mesma regra.
+ * manual e o automatico compartilhem a mesma regra.
  */
 @Service
 public class EnvioEvangelhoService {
@@ -43,12 +43,14 @@ public class EnvioEvangelhoService {
     }
 
     /**
-     * Executa o envio de um agendamento e registra o resultado nele proprio.
+     * Executa o envio de um agendamento pela sessao do usuario dono e registra
+     * o resultado no proprio agendamento.
      *
+     * @param instancia  sessao de WhatsApp do dono
      * @return mensagem de status legivel para o painel
      * @throws IllegalStateException se a busca ou o envio falharem
      */
-    public String enviar(Agendamento agendamento) {
+    public String enviar(String instancia, Agendamento agendamento) {
         if (agendamento.getGrupoId() == null || agendamento.getGrupoId().isBlank()) {
             throw new IllegalStateException("Agendamento sem grupo de destino.");
         }
@@ -57,7 +59,7 @@ public class EnvioEvangelhoService {
         String mensagem = formatarMensagem(evangelho);
 
         try {
-            whatsappService.enviarMensagem(agendamento.getGrupoId(), mensagem);
+            whatsappService.enviarMensagem(instancia, agendamento.getGrupoId(), mensagem);
 
             agendamento.setUltimoEnvio(LocalDate.now(clock));
             String status = "Enviado em " + LocalDate.now(clock).format(DATA_EXTENSO)
@@ -85,13 +87,13 @@ public class EnvioEvangelhoService {
      *
      * @return mensagem de status legivel para o painel
      */
-    public String enviarAvulso(String grupoId) {
+    public String enviarAvulso(String instancia, String grupoId) {
         if (grupoId == null || grupoId.isBlank()) {
             throw new IllegalArgumentException("Informe o grupo de destino.");
         }
 
         Evangelho evangelho = liturgiaService.buscarEvangelhoDoDia();
-        whatsappService.enviarMensagem(grupoId, formatarMensagem(evangelho));
+        whatsappService.enviarMensagem(instancia, grupoId, formatarMensagem(evangelho));
 
         String status = "Enviado agora (" + evangelho.referencia() + ").";
         log.info("Envio manual concluido: {}", status);

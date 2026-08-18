@@ -44,7 +44,7 @@ public class ConexaoWhatsappService {
      * Estado atual da conexao. Chamado em polling pelo frontend enquanto
      * o usuario nao conclui o pareamento.
      */
-    public StatusConexao consultarStatus() {
+    public StatusConexao consultarStatus(String instancia) {
         if (client.estaSimulando()) {
             return new StatusConexao(StatusConexao.Estado.CONECTADO, null, null,
                     "Modo simulacao: nenhuma conexao real com o WhatsApp.");
@@ -52,10 +52,10 @@ public class ConexaoWhatsappService {
 
         try {
             JsonNode resposta = client.chamar(HttpMethod.GET,
-                    "/instance/connectionState/" + client.instancia(), null);
+                    "/instance/connectionState/" + instancia, null);
 
             String estado = extrairEstado(resposta);
-            log.debug("Estado da instancia {}: {}", client.instancia(), estado);
+            log.debug("Estado da instancia {}: {}", instancia, estado);
 
             if (ESTADO_ATIVO.equalsIgnoreCase(estado)) {
                 return StatusConexao.conectado();
@@ -91,7 +91,7 @@ public class ConexaoWhatsappService {
      * @param numero telefone com DDI apenas com digitos (ex.: 5511999999999) para
      *               receber um codigo de pareamento; nulo/vazio gera QR code
      */
-    public StatusConexao iniciarConexao(String numero) {
+    public StatusConexao iniciarConexao(String instancia, String numero) {
         if (client.estaSimulando()) {
             return new StatusConexao(StatusConexao.Estado.CONECTADO, null, null,
                     "Modo simulacao ativo: conexao real desabilitada. "
@@ -99,14 +99,14 @@ public class ConexaoWhatsappService {
         }
 
         // Ja conectado: nao faz sentido gerar um novo QR.
-        StatusConexao atual = consultarStatus();
+        StatusConexao atual = consultarStatus(instancia);
         if (atual.conectadoComSucesso()) {
             return atual;
         }
 
-        garantirInstancia(numero);
+        garantirInstancia(instancia, numero);
 
-        String caminho = "/instance/connect/" + client.instancia();
+        String caminho = "/instance/connect/" + instancia;
         String numeroLimpo = normalizarNumero(numero);
         if (!numeroLimpo.isBlank()) {
             caminho += "?number=" + numeroLimpo;
@@ -129,7 +129,7 @@ public class ConexaoWhatsappService {
             }
         }
 
-        log.info("Pareamento iniciado para a instancia {} ({}).", client.instancia(),
+        log.info("Pareamento iniciado para a instancia {} ({}).", instancia,
                 codigoPareamento.isBlank() ? "QR code" : "codigo de pareamento");
 
         return StatusConexao.aguardando(
@@ -141,13 +141,13 @@ public class ConexaoWhatsappService {
      * Cria a instancia caso ainda nao exista.
      * Criar duas vezes devolve erro na Evolution API, entao a existencia e verificada antes.
      */
-    private void garantirInstancia(String numero) {
-        if (instanciaExiste()) {
+    private void garantirInstancia(String instancia, String numero) {
+        if (instanciaExiste(instancia)) {
             return;
         }
 
         Map<String, Object> corpo = new LinkedHashMap<>();
-        corpo.put("instanceName", client.instancia());
+        corpo.put("instanceName", instancia);
         corpo.put("qrcode", true);
         corpo.put("integration", "WHATSAPP-BAILEYS");
 
@@ -156,14 +156,14 @@ public class ConexaoWhatsappService {
             corpo.put("number", numeroLimpo);
         }
 
-        log.info("Criando a instancia {} na Evolution API.", client.instancia());
+        log.info("Criando a instancia {} na Evolution API.", instancia);
         client.chamar(HttpMethod.POST, "/instance/create", corpo);
     }
 
-    private boolean instanciaExiste() {
+    private boolean instanciaExiste(String instancia) {
         try {
             JsonNode resposta = client.chamar(HttpMethod.GET,
-                    "/instance/fetchInstances?instanceName=" + client.instancia(), null);
+                    "/instance/fetchInstances?instanceName=" + instancia, null);
             if (resposta == null) {
                 return false;
             }
@@ -175,13 +175,13 @@ public class ConexaoWhatsappService {
     }
 
     /** Encerra a sessao no celular, exigindo novo pareamento. */
-    public void desconectar() {
+    public void desconectar(String instancia) {
         if (client.estaSimulando()) {
             log.info("[SIMULACAO] Desconexao solicitada.");
             return;
         }
-        client.chamar(HttpMethod.DELETE, "/instance/logout/" + client.instancia(), null);
-        log.info("Instancia {} desconectada.", client.instancia());
+        client.chamar(HttpMethod.DELETE, "/instance/logout/" + instancia, null);
+        log.info("Instancia {} desconectada.", instancia);
     }
 
     // ------------------------------------------------------------------
@@ -192,7 +192,7 @@ public class ConexaoWhatsappService {
      * Lista os grupos da conta conectada, em ordem alfabetica.
      * E o que permite o usuario escolher o destino sem digitar IDs.
      */
-    public List<Grupo> listarGrupos() {
+    public List<Grupo> listarGrupos(String instancia) {
         if (client.estaSimulando()) {
             return List.of(
                     new Grupo("120363000000000001@g.us", "[simulacao] Grupo da Paroquia", 42),
@@ -200,7 +200,7 @@ public class ConexaoWhatsappService {
         }
 
         JsonNode resposta = client.chamar(HttpMethod.GET,
-                "/group/fetchAllGroups/" + client.instancia() + "?getParticipants=false", null);
+                "/group/fetchAllGroups/" + instancia + "?getParticipants=false", null);
 
         List<Grupo> grupos = new ArrayList<>();
         if (resposta == null) {
@@ -223,7 +223,7 @@ public class ConexaoWhatsappService {
         }
 
         grupos.sort(Comparator.comparing(Grupo::nome, String.CASE_INSENSITIVE_ORDER));
-        log.info("{} grupos encontrados na instancia {}.", grupos.size(), client.instancia());
+        log.info("{} grupos encontrados na instancia {}.", grupos.size(), instancia);
         return grupos;
     }
 

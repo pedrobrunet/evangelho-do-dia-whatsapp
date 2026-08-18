@@ -17,6 +17,8 @@ server:
 app:
   timezone: ${APP_TIMEZONE:America/Sao_Paulo}
   arquivo-agendamentos: ${APP_AGENDAMENTOS_FILE:data/agendamentos.json}
+  # Contem hashes de senha: mantenha dentro do volume persistente.
+  arquivo-usuarios: ${APP_USUARIOS_FILE:data/usuarios.json}
   arquivo-configuracao: ${APP_CONFIG_FILE:data/configuracao.json}
   liturgia-url: ${LITURGIA_URL:https://liturgiadiaria.cancaonova.com/pp/}
   liturgia-api-url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}
@@ -33,6 +35,14 @@ whatsapp:
   api-key: ${WHATSAPP_API_KEY:}
   # true = apenas registra no log, sem chamar a API externa.
   simular: ${WHATSAPP_SIMULAR:true}
+
+email:
+  # SEGURANCA: nunca versione esta chave. Vazia deixa o envio apenas no log.
+  api-key: ${RESEND_API_KEY:}
+  # Sem dominio verificado na Resend, o unico remetente aceito e
+  # onboarding@resend.dev, que so entrega para o dono da conta Resend.
+  remetente: ${EMAIL_REMETENTE:Evangelho do Dia <onboarding@resend.dev>}
+  url-painel: ${EMAIL_URL_PAINEL:http://localhost:8081}
 
 logging:
   level:

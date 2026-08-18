@@ -16,6 +16,9 @@ import java.util.List;
 
 /**
  * Regras dos agendamentos e montagem da fila de proximos envios.
+ *
+ * Todo metodo publico recebe o id do dono: o isolamento entre contas nao pode
+ * depender de o controller lembrar de filtrar.
  */
 @Service
 public class AgendamentoService {
@@ -35,39 +38,45 @@ public class AgendamentoService {
         this.clock = clock;
     }
 
-    public List<Agendamento> listar() {
-        return repository.listar();
+    public List<Agendamento> listar(String usuarioId) {
+        return repository.listarDoUsuario(usuarioId);
     }
 
-    public Agendamento criar(AgendamentoRequest request) {
+    public Agendamento criar(String usuarioId, AgendamentoRequest request) {
         Agendamento agendamento = new Agendamento();
+        agendamento.setUsuarioId(usuarioId);
         aplicar(agendamento, request);
         return repository.inserir(agendamento);
     }
 
-    public Agendamento atualizar(String id, AgendamentoRequest request) {
-        Agendamento agendamento = obrigatorio(id);
+    public Agendamento atualizar(String usuarioId, String id, AgendamentoRequest request) {
+        Agendamento agendamento = obrigatorio(usuarioId, id);
         aplicar(agendamento, request);
         repository.atualizar();
         return agendamento;
     }
 
     /** Alterna ativo/pausado sem exigir o payload completo. */
-    public Agendamento alternarAtivo(String id) {
-        Agendamento agendamento = obrigatorio(id);
+    public Agendamento alternarAtivo(String usuarioId, String id) {
+        Agendamento agendamento = obrigatorio(usuarioId, id);
         agendamento.setAtivo(!agendamento.isAtivo());
         repository.atualizar();
         return agendamento;
     }
 
-    public void remover(String id) {
-        if (!repository.remover(id)) {
+    public void remover(String usuarioId, String id) {
+        if (!repository.remover(usuarioId, id)) {
             throw new IllegalArgumentException("Agendamento nao encontrado.");
         }
     }
 
-    public Agendamento obrigatorio(String id) {
-        return repository.buscar(id)
+    /**
+     * Busca o agendamento dentro da conta informada.
+     * A mesma mensagem e usada para "nao existe" e "e de outra conta", para
+     * nao revelar a existencia de agendamentos alheios.
+     */
+    public Agendamento obrigatorio(String usuarioId, String id) {
+        return repository.buscar(usuarioId, id)
                 .orElseThrow(() -> new IllegalArgumentException("Agendamento nao encontrado."));
     }
 
@@ -83,13 +92,13 @@ public class AgendamentoService {
     // ------------------------------------------------------------------
 
     /**
-     * Proximos disparos previstos, do mais proximo ao mais distante.
+     * Proximos disparos previstos da conta, do mais proximo ao mais distante.
      * Agendamentos pausados ficam de fora — nao ha disparo previsto para eles.
      */
-    public List<ProximoEnvio> proximosEnvios() {
+    public List<ProximoEnvio> proximosEnvios(String usuarioId) {
         LocalDateTime agora = LocalDateTime.now(clock);
 
-        return repository.listar().stream()
+        return repository.listarDoUsuario(usuarioId).stream()
                 .filter(Agendamento::isAtivo)
                 .map(agendamento -> montar(agendamento, agora))
                 .sorted(Comparator.comparing(ProximoEnvio::quando))

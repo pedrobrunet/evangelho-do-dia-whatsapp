@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 class ConexaoWhatsappServiceTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String INSTANCIA = "uteste";
 
     private EvolutionApiClient client;
     private ConexaoWhatsappService service;
@@ -33,7 +34,6 @@ class ConexaoWhatsappServiceTest {
     @BeforeEach
     void preparar() {
         client = mock(EvolutionApiClient.class);
-        when(client.instancia()).thenReturn("teste");
         when(client.estaSimulando()).thenReturn(false);
         service = new ConexaoWhatsappService(client);
     }
@@ -51,7 +51,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connectionState/"), isNull()))
                 .thenReturn(json("{\"instance\":{\"instanceName\":\"teste\",\"state\":\"open\"}}"));
 
-        assertThat(service.consultarStatus().estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
+        assertThat(service.consultarStatus(INSTANCIA).estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
     }
 
     @Test
@@ -59,7 +59,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connectionState/"), isNull()))
                 .thenReturn(json("{\"state\":\"open\"}"));
 
-        assertThat(service.consultarStatus().estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
+        assertThat(service.consultarStatus(INSTANCIA).estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
     }
 
     @Test
@@ -67,7 +67,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connectionState/"), isNull()))
                 .thenReturn(json("{\"instance\":{\"state\":\"close\"}}"));
 
-        assertThat(service.consultarStatus().estado()).isEqualTo(StatusConexao.Estado.DESCONECTADO);
+        assertThat(service.consultarStatus(INSTANCIA).estado()).isEqualTo(StatusConexao.Estado.DESCONECTADO);
     }
 
     @Test
@@ -75,7 +75,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(any(), any(), any()))
                 .thenThrow(new IllegalStateException("Evolution API fora do ar"));
 
-        StatusConexao status = service.consultarStatus();
+        StatusConexao status = service.consultarStatus(INSTANCIA);
 
         assertThat(status.estado()).isEqualTo(StatusConexao.Estado.INDISPONIVEL);
         assertThat(status.descricao()).contains("fora do ar");
@@ -91,7 +91,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connect/"), isNull()))
                 .thenReturn(json("{\"base64\":\"iVBORw0KGgo=\",\"pairingCode\":\"\"}"));
 
-        StatusConexao status = service.iniciarConexao(null);
+        StatusConexao status = service.iniciarConexao(INSTANCIA, null);
 
         assertThat(status.estado()).isEqualTo(StatusConexao.Estado.AGUARDANDO_LEITURA);
         assertThat(status.qrCodeBase64()).isEqualTo("data:image/png;base64,iVBORw0KGgo=");
@@ -106,7 +106,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connect/"), isNull()))
                 .thenReturn(json("{\"base64\":\"data:image/png;base64,AAAA\",\"pairingCode\":\"ABCD1234\"}"));
 
-        StatusConexao status = service.iniciarConexao(null);
+        StatusConexao status = service.iniciarConexao(INSTANCIA, null);
 
         assertThat(status.qrCodeBase64()).isEqualTo("data:image/png;base64,AAAA");
         assertThat(status.codigoPareamento()).isEqualTo("ABCD1234");
@@ -117,7 +117,7 @@ class ConexaoWhatsappServiceTest {
         when(client.chamar(eq(HttpMethod.GET), contains("/instance/connectionState/"), isNull()))
                 .thenReturn(json("{\"instance\":{\"state\":\"open\"}}"));
 
-        StatusConexao status = service.iniciarConexao(null);
+        StatusConexao status = service.iniciarConexao(INSTANCIA, null);
 
         assertThat(status.estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
         assertThat(status.qrCodeBase64()).isNull();
@@ -133,7 +133,7 @@ class ConexaoWhatsappServiceTest {
                           {"id":"","subject":"Sem id"}
                         ]"""));
 
-        List<Grupo> grupos = service.listarGrupos();
+        List<Grupo> grupos = service.listarGrupos(INSTANCIA);
 
         assertThat(grupos).hasSize(2);
         assertThat(grupos.get(0).nome()).isEqualTo("Adoracao");
@@ -145,7 +145,7 @@ class ConexaoWhatsappServiceTest {
     void deveUsarGruposFicticiosEmModoSimulacao() {
         when(client.estaSimulando()).thenReturn(true);
 
-        assertThat(service.listarGrupos()).isNotEmpty();
-        assertThat(service.consultarStatus().estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
+        assertThat(service.listarGrupos(INSTANCIA)).isNotEmpty();
+        assertThat(service.consultarStatus(INSTANCIA).estado()).isEqualTo(StatusConexao.Estado.CONECTADO);
     }
 }

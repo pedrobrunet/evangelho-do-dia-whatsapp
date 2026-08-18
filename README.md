@@ -1,16 +1,19 @@
 # Evangelho do Dia — Bot para WhatsApp
 
-Aplicação Spring Boot que envia o Evangelho do dia para grupos de WhatsApp em horários programados. O usuário conecta o WhatsApp pelo próprio painel (QR code ou código de pareamento) e cadastra quantos agendamentos quiser — o conteúdo é buscado automaticamente todos os dias.
+Aplicação Spring Boot que envia o Evangelho do dia para grupos de WhatsApp em horários programados. Cada conta conecta o próprio WhatsApp pelo painel (QR code ou código de pareamento) e cadastra quantos agendamentos quiser — o conteúdo é buscado automaticamente todos os dias.
 
 ## Fluxo de uso
 
 ```
+0. Criar conta            →  nome, e-mail e senha; boas-vindas por e-mail
 1. Conectar o WhatsApp    →  QR code ou código de pareamento, direto no painel
 2. Cadastrar agendamentos →  grupo (lista da conta conectada) + horário
                              quantos quiser: 07h no #geral, 12h no #mentorias…
 3. Acompanhar a fila      →  próximos disparos, ordenados, com contagem regressiva
                              (o conteúdo vem sozinho da API de liturgia)
 ```
+
+Cada conta é isolada: conecta o próprio WhatsApp e só enxerga os próprios agendamentos.
 
 Cada agendamento dispara **uma vez por dia**, no seu horário, e pode ser pausado, editado, removido ou disparado na hora pelo botão "Enviar agora".
 
@@ -63,28 +66,39 @@ src/main/java/com/botwpp/evangelho/
 ├── config/
 │   ├── AplicacaoConfig.java         # beans RestClient e Clock
 │   ├── AppProperties.java           # prefixo "app"
+│   ├── EmailProperties.java         # prefixo "email"
 │   ├── WhatsappProperties.java      # prefixo "whatsapp"
-│   └── TokenAdminFilter.java        # protege /api/** com X-Admin-Token
+│   ├── SessaoFilter.java            # exige sessão em toda a API
+│   └── UsuarioLogado.java           # resolve o usuário da sessão
 ├── controller/
+│   ├── AutenticacaoController.java  # cadastro, login, sair
 │   ├── AgendamentoController.java   # CRUD dos agendamentos + fila
 │   ├── ConexaoController.java       # QR code, pareamento, status e grupos
-│   ├── EvangelhoController.java     # conteúdo do dia e prévia
+│   ├── EvangelhoController.java     # conteúdo do dia, prévia e envio avulso
 │   └── TratadorDeErros.java         # @RestControllerAdvice
 ├── dto/
 │   ├── AgendamentoRequest.java      # payload validado com Bean Validation
+│   ├── EnvioManualRequest.java      # destino do envio avulso
+│   ├── LoginRequest.java            # credenciais
 │   ├── ProximoEnvio.java            # uma entrada da fila
-│   └── RespostaApi.java             # envelope {sucesso, mensagem, dados}
+│   ├── RegistroRequest.java         # cadastro validado
+│   ├── RespostaApi.java             # envelope {sucesso, mensagem, dados}
+│   └── UsuarioResponse.java         # usuário sem o hash de senha
 ├── model/
-│   ├── Agendamento.java             # grupo + horário + ativo + último envio
+│   ├── Agendamento.java             # dono + grupo + horário + ativo
 │   ├── Evangelho.java               # record com o texto do dia
 │   ├── Grupo.java                   # grupo disponível na conta conectada
-│   └── StatusConexao.java           # estado do pareamento + QR/código
+│   ├── StatusConexao.java           # estado do pareamento + QR/código
+│   └── Usuario.java                 # conta; deriva a instância do WhatsApp
 ├── repository/
-│   └── AgendamentoRepository.java   # persistência em JSON (data/agendamentos.json)
+│   ├── AgendamentoRepository.java   # persistência em JSON, filtrada por dono
+│   └── UsuarioRepository.java       # contas (data/usuarios.json)
 ├── scheduler/
-│   └── EnvioScheduler.java          # cron a cada minuto, percorre os ativos
+│   └── EnvioScheduler.java          # cron a cada minuto, percorre todas as contas
 └── service/
     ├── AgendamentoService.java      # regras dos agendamentos e cálculo da fila
+    ├── AutenticacaoService.java     # cadastro e login com BCrypt
+    ├── EmailService.java            # boas-vindas via Resend
     ├── EvolutionApiClient.java      # cliente HTTP único da Evolution API
     ├── ConexaoWhatsappService.java  # instância, QR code, status e grupos
     ├── LiturgiaService.java         # scraping JSoup + fallback via API
@@ -108,7 +122,9 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 |---|---|
 | `SERVER_PORT` | Porta HTTP do painel (padrão 8081) |
 | `APP_TIMEZONE` | Fuso do agendamento (padrão America/Sao_Paulo) |
-| `ADMIN_TOKEN` | Token exigido no header `X-Admin-Token` para `/api/**` |
+| `RESEND_API_KEY` | Chave da Resend; vazia deixa os e-mails apenas no log |
+| `EMAIL_REMETENTE` | Remetente dos e-mails |
+| `EMAIL_URL_PAINEL` | URL usada nos links dos e-mails |
 | `WHATSAPP_PROVIDER` | `EVOLUTION` (padrão) ou `WEBHOOK` |
 | `WHATSAPP_API_URL` | URL da Evolution API (padrão http://localhost:8080) |
 | `WHATSAPP_INSTANCE` | Nome da instância criada no pareamento |
@@ -116,6 +132,17 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 | `WHATSAPP_SIMULAR` | `true` desliga toda chamada externa |
 
 ## API REST
+
+Exceto as três rotas de autenticação, toda a API exige sessão. O cookie é definido no login e enviado automaticamente pelo navegador.
+
+### Autenticação
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/auth/registrar` | Cria a conta `{nome, email, senha}` e já autentica |
+| `POST` | `/api/auth/login` | Autentica `{email, senha}` |
+| `POST` | `/api/auth/sair` | Encerra a sessão |
+| `GET` | `/api/auth/eu` | Quem está logado; 204 quando não há sessão |
 
 ### Conexão
 
@@ -125,12 +152,13 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 | `POST` | `/api/conexao/iniciar` | Gera QR code; com `{"numero":"5511..."}` gera código de pareamento |
 | `DELETE` | `/api/conexao` | Encerra a sessão |
 | `GET` | `/api/conexao/grupos` | Grupos da conta conectada, em ordem alfabética |
+| `POST` | `/api/evangelho/enviar` | Envio avulso `{grupoId}`, sem agendamento |
 
 ### Agendamentos e fila
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/agendamentos` | Lista os agendamentos, ordenados por horário |
+| `GET` | `/api/agendamentos` | Agendamentos da conta logada, por horário |
 | `POST` | `/api/agendamentos` | Cria `{horarioEnvio, grupoId, grupoNome, ativo}` |
 | `PUT` | `/api/agendamentos/{id}` | Edita horário, grupo ou estado |
 | `POST` | `/api/agendamentos/{id}/alternar` | Pausa ou reativa |
@@ -168,9 +196,12 @@ A fila devolve o instante absoluto de cada disparo, e o painel calcula a contage
 
 Este repositório é público. Pontos observados no código:
 
-- **Nenhum segredo versionado.** `WHATSAPP_API_KEY` e `ADMIN_TOKEN` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
+- **Nenhum segredo versionado.** `WHATSAPP_API_KEY` e `RESEND_API_KEY` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
 - **A API nunca devolve credenciais.** `/api/configuracao` expõe somente horário, grupo e status.
-- **`/api/**` protegido por `X-Admin-Token`** quando `ADMIN_TOKEN` está definido, com comparação em tempo constante (`MessageDigest.isEqual`). Sem o token a API fica aberta e a aplicação registra um aviso na subida.
+- **Toda a API exige sessão autenticada.** Só `/api/auth/registrar`, `/api/auth/login` e `/api/auth/eu` ficam abertas — são justamente as que criam a sessão.
+- **Isolamento entre contas.** O id do dono vem sempre da sessão, nunca do payload, e o repositório filtra por ele: um id de agendamento vazado não permite ler, editar nem remover de outra conta.
+- **Senhas com BCrypt.** A senha em texto puro nunca é armazenada. Login com e-mail inexistente compara contra um hash fictício, para que o tempo de resposta não revele quais e-mails têm conta.
+- **Sessão renovada a cada login**, o que impede fixação de sessão.
 - **O serviço de WhatsApp escuta só em `127.0.0.1`**, tanto no `docker-compose.yml` quanto no bridge. Quem alcança essa porta com a API key controla o WhatsApp pareado.
 - **As credenciais da sessão pareada** (`whatsapp-bridge/sessoes/`) estão no `.gitignore` e devem ser tratadas como segredo: quem copia essa pasta assume a conta conectada.
 - **Sem vazamento de detalhe interno.** `include-stacktrace: never` e o `TratadorDeErros` devolvem mensagens curtas; o detalhe fica no log.
@@ -178,7 +209,7 @@ Este repositório é público. Pontos observados no código:
 - **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `AgendamentoRequest`.
 - **Sem XSS no painel.** Nomes de grupo são definidos por terceiros no WhatsApp e passam por escape antes de ir para o HTML.
 
-Um painel conectado envia mensagens em nome do WhatsApp pareado. Antes de expor na internet: defina `ADMIN_TOKEN`, use um proxy com TLS e restrinja a origem do tráfego.
+Um painel conectado envia mensagens em nome do WhatsApp pareado. Ao expor na internet, use um proxy com TLS — a sessão viaja em cookie e sem HTTPS pode ser interceptada.
 
 ## Testes
 
@@ -186,9 +217,10 @@ Um painel conectado envia mensagens em nome do WhatsApp pareado. Antes de expor 
 mvn test
 ```
 
-23 testes cobrindo:
+25 testes cobrindo:
 
 - **Scheduler** — horário atingido, pausado, envio duplicado no mesmo dia, janela de tolerância, disparo seletivo entre vários agendamentos e falha de um sem travar os demais, com `Clock` fixo.
+- **Isolamento** — cada envio sai pela sessão do dono; agendamento órfão de conta removida é ignorado.
 - **Fila** — disparo hoje x amanhã, janela de tolerância, exclusão de pausados, ordenação e fallback para o ID quando não há nome do grupo.
 - **Conexão** — parsing das respostas da Evolution API nos dois formatos conhecidos, normalização do QR code em data URI, Evolution fora do ar, e listagem/ordenação de grupos.
 
@@ -218,7 +250,7 @@ railway domain               # gera a URL pública
 Depois, no painel do Railway:
 
 1. **Volume** — monte um volume em `/data`. Sem ele, as credenciais da sessão e os agendamentos somem a cada deploy, e você precisa parear de novo.
-2. **Variáveis** — `WHATSAPP_API_KEY` (qualquer valor forte; é usada só entre painel e bridge dentro do container) e, quando quiser proteger o acesso, `ADMIN_TOKEN`.
+2. **Variáveis** — `WHATSAPP_API_KEY` (qualquer valor forte; usada só entre painel e bridge dentro do container) e `RESEND_API_KEY` para o envio de e-mails.
 3. **Réplicas: 1.** Já vem fixo em `railway.json`. Com duas réplicas você teria duas sessões do WhatsApp e mensagens duplicadas em cada grupo.
 
 `PORT` é injetada pela plataforma e o `application.yml` já a respeita.

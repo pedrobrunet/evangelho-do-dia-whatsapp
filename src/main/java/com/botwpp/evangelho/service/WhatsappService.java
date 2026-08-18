@@ -46,11 +46,12 @@ public class WhatsappService {
     /**
      * Envia a mensagem para o destino informado.
      *
+     * @param instancia sessao de WhatsApp do dono do envio
      * @param destino  ID do grupo (…@g.us) ou numero no formato internacional
      * @param mensagem texto ja formatado
      * @throws IllegalStateException se o WhatsApp nao estiver conectado ou o envio falhar
      */
-    public void enviarMensagem(String destino, String mensagem) {
+    public void enviarMensagem(String instancia, String destino, String mensagem) {
         if (destino == null || destino.isBlank()) {
             throw new IllegalArgumentException("Destino nao configurado.");
         }
@@ -64,7 +65,7 @@ public class WhatsappService {
         }
 
         if (properties.getProvider() == WhatsappProperties.Provider.EVOLUTION) {
-            enviarViaEvolution(destino, mensagem);
+            enviarViaEvolution(instancia, destino, mensagem);
         } else {
             enviarViaWebhook(destino, mensagem);
         }
@@ -75,8 +76,8 @@ public class WhatsappService {
      * Verifica a conexao antes, para devolver um erro compreensivel em vez do
      * HTTP 400 generico que a Evolution API retorna com a sessao fechada.
      */
-    private void enviarViaEvolution(String destino, String mensagem) {
-        StatusConexao status = conexaoService.consultarStatus();
+    private void enviarViaEvolution(String instancia, String destino, String mensagem) {
+        StatusConexao status = conexaoService.consultarStatus(instancia);
         if (!status.conectadoComSucesso()) {
             throw new IllegalStateException(
                     "WhatsApp nao esta conectado. Refaca o pareamento no painel antes de enviar.");
@@ -87,7 +88,7 @@ public class WhatsappService {
         payload.put("text", mensagem);
         payload.put("linkPreview", false);
 
-        client.chamar(HttpMethod.POST, "/message/sendText/" + client.instancia(), payload);
+        client.chamar(HttpMethod.POST, "/message/sendText/" + instancia, payload);
         log.info("Mensagem enviada para {} via Evolution API.", mascarar(destino));
     }
 

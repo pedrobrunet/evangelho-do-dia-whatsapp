@@ -16,6 +16,9 @@ public class Agendamento {
     /** Identificador estavel, usado pelo painel para editar e remover. */
     private String id;
 
+    /** Dono do agendamento. Toda leitura e escrita e filtrada por ele. */
+    private String usuarioId;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm")
     private LocalTime horarioEnvio = LocalTime.of(8, 0);
 
@@ -40,6 +43,14 @@ public class Agendamento {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getUsuarioId() {
+        return usuarioId;
+    }
+
+    public void setUsuarioId(String usuarioId) {
+        this.usuarioId = usuarioId;
     }
 
     public LocalTime getHorarioEnvio() {

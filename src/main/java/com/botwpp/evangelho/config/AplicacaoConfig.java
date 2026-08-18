@@ -12,7 +12,7 @@ import java.time.ZoneId;
  * Beans de infraestrutura compartilhados pelos services.
  */
 @Configuration
-@EnableConfigurationProperties({AppProperties.class, WhatsappProperties.class})
+@EnableConfigurationProperties({AppProperties.class, WhatsappProperties.class, EmailProperties.class})
 public class AplicacaoConfig {
 
     /** Cliente HTTP usado tanto pela API de liturgia quanto pelo envio ao WhatsApp. */

@@ -24,6 +24,7 @@ class AgendamentoServiceTest {
 
     private static final ZoneId SP = ZoneId.of("America/Sao_Paulo");
     private static final LocalDate HOJE = LocalDate.of(2026, 8, 18);
+    private static final String USUARIO = "usuario-1";
 
     private Clock relogioEm(int hora, int minuto) {
         Instant instante = HOJE.atTime(hora, minuto).atZone(SP).toInstant();
@@ -39,12 +40,13 @@ class AgendamentoServiceTest {
         a.setAtivo(ativo);
         a.setHorarioEnvio(horario);
         a.setUltimoEnvio(ultimoEnvio);
+        a.setUsuarioId(USUARIO);
         return a;
     }
 
     private AgendamentoService servicoCom(Clock clock, Agendamento... agendamentos) {
         AgendamentoRepository repository = mock(AgendamentoRepository.class);
-        when(repository.listar()).thenReturn(List.of(agendamentos));
+        when(repository.listarDoUsuario(USUARIO)).thenReturn(List.of(agendamentos));
         return new AgendamentoService(repository, clock);
     }
 
@@ -53,7 +55,7 @@ class AgendamentoServiceTest {
         AgendamentoService service = servicoCom(relogioEm(6, 0),
                 agendamento("a", "Paroquia", true, LocalTime.of(8, 0), null));
 
-        List<ProximoEnvio> fila = service.proximosEnvios();
+        List<ProximoEnvio> fila = service.proximosEnvios(USUARIO);
 
         assertThat(fila).hasSize(1);
         assertThat(fila.get(0).hoje()).isTrue();
@@ -66,7 +68,7 @@ class AgendamentoServiceTest {
         AgendamentoService service = servicoCom(relogioEm(9, 0),
                 agendamento("a", "Paroquia", true, LocalTime.of(8, 0), HOJE));
 
-        List<ProximoEnvio> fila = service.proximosEnvios();
+        List<ProximoEnvio> fila = service.proximosEnvios(USUARIO);
 
         assertThat(fila.get(0).hoje()).isFalse();
         assertThat(fila.get(0).quando()).isEqualTo(HOJE.plusDays(1).atTime(8, 0));
@@ -78,7 +80,7 @@ class AgendamentoServiceTest {
         AgendamentoService service = servicoCom(relogioEm(8, 30),
                 agendamento("a", "Paroquia", true, LocalTime.of(8, 0), null));
 
-        assertThat(service.proximosEnvios().get(0).hoje()).isFalse();
+        assertThat(service.proximosEnvios(USUARIO).get(0).hoje()).isFalse();
     }
 
     @Test
@@ -87,7 +89,7 @@ class AgendamentoServiceTest {
         AgendamentoService service = servicoCom(relogioEm(8, 5),
                 agendamento("a", "Paroquia", true, LocalTime.of(8, 0), null));
 
-        assertThat(service.proximosEnvios().get(0).hoje()).isTrue();
+        assertThat(service.proximosEnvios(USUARIO).get(0).hoje()).isTrue();
     }
 
     @Test
@@ -96,7 +98,7 @@ class AgendamentoServiceTest {
                 agendamento("ativo", "Paroquia", true, LocalTime.of(8, 0), null),
                 agendamento("pausado", "Familia", false, LocalTime.of(9, 0), null));
 
-        List<ProximoEnvio> fila = service.proximosEnvios();
+        List<ProximoEnvio> fila = service.proximosEnvios(USUARIO);
 
         assertThat(fila).hasSize(1);
         assertThat(fila.get(0).grupoNome()).isEqualTo("Paroquia");
@@ -109,7 +111,7 @@ class AgendamentoServiceTest {
                 agendamento("manha", "Manha", true, LocalTime.of(7, 0), null),
                 agendamento("tarde", "Tarde", true, LocalTime.of(12, 0), null));
 
-        List<ProximoEnvio> fila = service.proximosEnvios();
+        List<ProximoEnvio> fila = service.proximosEnvios(USUARIO);
 
         // As 10:00, o das 07:00 ja passou e cai para amanha; os demais sao hoje.
         assertThat(fila).extracting(ProximoEnvio::grupoNome)
@@ -121,6 +123,6 @@ class AgendamentoServiceTest {
         Agendamento semNome = agendamento("a", "", true, LocalTime.of(8, 0), null);
         AgendamentoService service = servicoCom(relogioEm(6, 0), semNome);
 
-        assertThat(service.proximosEnvios().get(0).grupoNome()).isEqualTo("120363000000000000@g.us");
+        assertThat(service.proximosEnvios(USUARIO).get(0).grupoNome()).isEqualTo("120363000000000000@g.us");
     }
 }

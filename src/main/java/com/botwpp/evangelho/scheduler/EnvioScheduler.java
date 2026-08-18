@@ -1,8 +1,10 @@
 package com.botwpp.evangelho.scheduler;
 
 import com.botwpp.evangelho.model.Agendamento;
+import com.botwpp.evangelho.model.Usuario;
 import com.botwpp.evangelho.repository.AgendamentoRepository;
 import com.botwpp.evangelho.service.AgendamentoService;
+import com.botwpp.evangelho.service.AutenticacaoService;
 import com.botwpp.evangelho.service.EnvioEvangelhoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,13 +14,14 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Optional;
 
 /**
- * Agendador dos envios diarios.
+ * Agendador dos envios diarios, de todas as contas.
  *
  * O cron dispara a cada minuto e o metodo decide quais agendamentos chegaram
- * na hora. Essa abordagem (em vez de um cron por agendamento) permite criar,
- * editar e remover programacoes pelo painel sem reprogramar nada no Spring.
+ * na hora. Cada envio sai pela sessao de WhatsApp do dono do agendamento —
+ * e o unico ponto do sistema que percorre contas diferentes.
  *
  * Guarda de idempotencia: {@code ultimoEnvio} garante um unico envio por dia
  * por agendamento, mesmo que a aplicacao reinicie.
@@ -30,13 +33,16 @@ public class EnvioScheduler {
 
     private final AgendamentoRepository repository;
     private final EnvioEvangelhoService envioService;
+    private final AutenticacaoService autenticacaoService;
     private final Clock clock;
 
     public EnvioScheduler(AgendamentoRepository repository,
                           EnvioEvangelhoService envioService,
+                          AutenticacaoService autenticacaoService,
                           Clock clock) {
         this.repository = repository;
         this.envioService = envioService;
+        this.autenticacaoService = autenticacaoService;
         this.clock = clock;
     }
 
@@ -48,14 +54,21 @@ public class EnvioScheduler {
         LocalDate hoje = LocalDate.now(clock);
         LocalTime agora = LocalTime.now(clock);
 
-        for (Agendamento agendamento : repository.listar()) {
+        for (Agendamento agendamento : repository.listarTodos()) {
             if (!deveDisparar(agendamento, hoje, agora)) {
+                continue;
+            }
+
+            Optional<Usuario> dono = autenticacaoService.buscarPorId(agendamento.getUsuarioId());
+            if (dono.isEmpty()) {
+                // Conta removida com agendamento orfao: nao ha sessao por onde enviar.
+                log.warn("Agendamento {} sem conta dona; ignorado.", agendamento.getId());
                 continue;
             }
 
             log.info("Horario atingido para {}. Iniciando o envio.", agendamento.descricao());
             try {
-                envioService.enviar(agendamento);
+                envioService.enviar(dono.get().getInstancia(), agendamento);
             } catch (RuntimeException e) {
                 // Nao propaga: uma excecao aqui interromperia os demais agendamentos
                 // desta rodada e os proximos ciclos do scheduler.

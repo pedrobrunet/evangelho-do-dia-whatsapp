@@ -10,27 +10,101 @@
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
 
-<div class="mx-auto max-w-4xl px-4 py-10">
+<!-- ============================================================
+     Tela de autenticacao — unica visivel enquanto nao ha sessao
+     ============================================================ -->
+<div id="telaAuth" class="flex min-h-screen items-center justify-center px-4">
+    <div class="w-full max-w-md">
+        <div class="mb-6 text-center">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900">📖 Evangelho do Dia</h1>
+            <p class="mt-1 text-slate-600">Envie a liturgia diaria para seus grupos de WhatsApp.</p>
+        </div>
 
-    <header class="mb-8">
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">📖 Evangelho do Dia</h1>
-        <p class="mt-1 text-slate-600">
-            Conecte o WhatsApp e programe quantos envios quiser. O conteudo e buscado automaticamente todos os dias.
+        <div id="alertaAuth" class="mb-4 hidden rounded-lg border px-4 py-3 text-sm"></div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <!-- Abas -->
+            <div class="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1">
+                <button type="button" id="abaLogin"
+                        class="flex-1 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm">
+                    Entrar
+                </button>
+                <button type="button" id="abaRegistro"
+                        class="flex-1 rounded-md px-4 py-2 text-sm font-semibold text-slate-500">
+                    Criar conta
+                </button>
+            </div>
+
+            <!-- Login -->
+            <form id="formLogin" class="space-y-4">
+                <div>
+                    <label for="loginEmail" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
+                    <input type="email" id="loginEmail" required autocomplete="email"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+                </div>
+                <div>
+                    <label for="loginSenha" class="mb-1 block text-sm font-medium text-slate-700">Senha</label>
+                    <input type="password" id="loginSenha" required autocomplete="current-password"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+                </div>
+                <button type="submit" id="btnLogin"
+                        class="w-full rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50">
+                    Entrar
+                </button>
+            </form>
+
+            <!-- Cadastro -->
+            <form id="formRegistro" class="hidden space-y-4">
+                <div>
+                    <label for="regNome" class="mb-1 block text-sm font-medium text-slate-700">Nome</label>
+                    <input type="text" id="regNome" required autocomplete="name" minlength="2" maxlength="80"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+                </div>
+                <div>
+                    <label for="regEmail" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
+                    <input type="email" id="regEmail" required autocomplete="email"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+                    <p class="mt-1 text-xs text-slate-500">Enviaremos a confirmacao da conta para este endereco.</p>
+                </div>
+                <div>
+                    <label for="regSenha" class="mb-1 block text-sm font-medium text-slate-700">Senha</label>
+                    <input type="password" id="regSenha" required autocomplete="new-password" minlength="8" maxlength="100"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+                    <p class="mt-1 text-xs text-slate-500">Minimo de 8 caracteres.</p>
+                </div>
+                <button type="submit" id="btnRegistro"
+                        class="w-full rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+                    Criar conta
+                </button>
+            </form>
+        </div>
+
+        <p class="mt-6 text-center text-xs text-slate-400">
+            Cada conta conecta o proprio WhatsApp e tem seus proprios agendamentos.
         </p>
+    </div>
+</div>
+
+
+<div id="painel" class="mx-auto hidden max-w-4xl px-4 py-10">
+
+    <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900">📖 Evangelho do Dia</h1>
+            <p class="mt-1 text-slate-600">
+                Conecte o WhatsApp e programe quantos envios quiser. O conteudo e buscado automaticamente todos os dias.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="nomeUsuario" class="text-sm font-medium text-slate-600"></span>
+            <button type="button" id="btnSair"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                Sair
+            </button>
+        </div>
     </header>
 
     <div id="alerta" class="mb-6 hidden rounded-lg border px-4 py-3 text-sm"></div>
-
-    <!-- Token de admin (aparece so quando o servidor exige) -->
-    <div id="blocoToken" class="mb-6 hidden rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <label for="adminToken" class="mb-1 block text-sm font-medium text-amber-900">
-            Token de administracao
-        </label>
-        <input type="password" id="adminToken" autocomplete="off"
-               placeholder="valor da variavel ADMIN_TOKEN"
-               class="w-full rounded-lg border border-amber-300 px-3 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
-        <p class="mt-1 text-xs text-amber-700">Guardado apenas nesta aba do navegador.</p>
-    </div>
 
     <!-- ============================================================
          PASSO 1 — Conectar o WhatsApp
@@ -234,15 +308,10 @@
     /** Grupos da conta conectada, mantidos para o filtro do seletor. */
     let grupos = [];
 
+    // A sessao viaja no cookie de sessao, enviado automaticamente pelo fetch
+    // em requisicoes de mesma origem.
     function headers() {
-        const h = {'Content-Type': 'application/json'};
-        const token = document.getElementById('adminToken').value.trim();
-        if (token) {
-            h['X-Admin-Token'] = token;
-            // sessionStorage: some ao fechar a aba, diferente do localStorage.
-            sessionStorage.setItem('adminToken', token);
-        }
-        return h;
+        return {'Content-Type': 'application/json'};
     }
 
     async function chamar(url, opcoes = {}) {
@@ -250,8 +319,9 @@
         const corpo = await resposta.json().catch(() => ({}));
 
         if (resposta.status === 401) {
-            document.getElementById('blocoToken').classList.remove('hidden');
-            throw new Error('Informe o token de administracao para continuar.');
+            // Sessao expirou ou nunca existiu: volta para a tela de entrada.
+            mostrarAutenticacao();
+            throw new Error('Sua sessao expirou. Entre novamente.');
         }
         if (!resposta.ok) {
             throw new Error(corpo.mensagem || `Erro ${resposta.status}`);
@@ -817,21 +887,129 @@
     }
 
     // ===============================================================
-    // Inicializacao
+    // Autenticacao
     // ===============================================================
-    const tokenSalvo = sessionStorage.getItem('adminToken');
-    if (tokenSalvo) {
-        document.getElementById('adminToken').value = tokenSalvo;
-        document.getElementById('blocoToken').classList.remove('hidden');
+    const telaAuth = document.getElementById('telaAuth');
+    const painel = document.getElementById('painel');
+
+    function mostrarAutenticacao() {
+        pararPolling();
+        telaAuth.classList.remove('hidden');
+        painel.classList.add('hidden');
     }
 
+    async function mostrarPainel(usuario) {
+        telaAuth.classList.add('hidden');
+        painel.classList.remove('hidden');
+        document.getElementById('nomeUsuario').textContent = usuario.nome;
+
+        await atualizarConexao();
+        await carregarAgendamentos();
+    }
+
+    const alertaAuth = document.getElementById('alertaAuth');
+
+    function avisoAuth(mensagem, tipo) {
+        const estilos = {
+            sucesso: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+            erro: 'border-red-200 bg-red-50 text-red-800'
+        };
+        alertaAuth.className = `mb-4 rounded-lg border px-4 py-3 text-sm ${estilos[tipo]}`;
+        alertaAuth.textContent = mensagem;
+        alertaAuth.classList.remove('hidden');
+    }
+
+    /** Alterna entre as abas "Entrar" e "Criar conta". */
+    function selecionarAba(entrar) {
+        const ativa = 'flex-1 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm';
+        const inativa = 'flex-1 rounded-md px-4 py-2 text-sm font-semibold text-slate-500';
+
+        document.getElementById('abaLogin').className = entrar ? ativa : inativa;
+        document.getElementById('abaRegistro').className = entrar ? inativa : ativa;
+        document.getElementById('formLogin').classList.toggle('hidden', !entrar);
+        document.getElementById('formRegistro').classList.toggle('hidden', entrar);
+        alertaAuth.classList.add('hidden');
+    }
+
+    document.getElementById('abaLogin').addEventListener('click', () => selecionarAba(true));
+    document.getElementById('abaRegistro').addEventListener('click', () => selecionarAba(false));
+
+    document.getElementById('formLogin').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const botao = document.getElementById('btnLogin');
+        botao.disabled = true;
+        try {
+            const resposta = await chamar(`${API}/auth/login`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: document.getElementById('loginEmail').value.trim(),
+                    senha: document.getElementById('loginSenha').value
+                })
+            });
+            // A senha nao fica no DOM apos o uso.
+            document.getElementById('loginSenha').value = '';
+            await mostrarPainel(resposta.dados);
+            mostrarAlerta(resposta.mensagem, 'sucesso');
+        } catch (e) {
+            avisoAuth(e.message, 'erro');
+        } finally {
+            botao.disabled = false;
+        }
+    });
+
+    document.getElementById('formRegistro').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const botao = document.getElementById('btnRegistro');
+        botao.disabled = true;
+        try {
+            const resposta = await chamar(`${API}/auth/registrar`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    nome: document.getElementById('regNome').value.trim(),
+                    email: document.getElementById('regEmail').value.trim(),
+                    senha: document.getElementById('regSenha').value
+                })
+            });
+            document.getElementById('regSenha').value = '';
+            await mostrarPainel(resposta.dados);
+            mostrarAlerta(resposta.mensagem, 'sucesso');
+        } catch (e) {
+            avisoAuth(e.message, 'erro');
+        } finally {
+            botao.disabled = false;
+        }
+    });
+
+    document.getElementById('btnSair').addEventListener('click', async () => {
+        try {
+            await chamar(`${API}/auth/sair`, {method: 'POST'});
+        } catch (e) {
+            // Mesmo que a chamada falhe, a tela volta para a entrada.
+        }
+        selecionarAba(true);
+        mostrarAutenticacao();
+    });
+
+    // ===============================================================
+    // Inicializacao
+    // ===============================================================
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) atualizarConexao();
     });
 
+    // Ao abrir, descobre se ja existe sessao: com ela o painel aparece
+    // direto; sem ela, a tela de entrada.
     (async () => {
-        await atualizarConexao();
-        await carregarAgendamentos();
+        try {
+            const resposta = await fetch(API + "/auth/eu");
+            if (resposta.status === 200) {
+                await mostrarPainel(await resposta.json());
+                return;
+            }
+        } catch (e) {
+            // Sem rede ou servidor fora: a tela de entrada ja e o padrao.
+        }
+        mostrarAutenticacao();
     })();
 </script>
 </body>
