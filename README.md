@@ -199,3 +199,39 @@ mvn test
 ## Licença
 
 Distribuído sob a licença MIT. Veja [LICENSE](LICENSE) para os termos completos.
+
+## Deploy
+
+A aplicação precisa de um **processo permanente**: o `@Scheduled` dispara nos horários programados e o bridge mantém uma conexão WebSocket aberta com o WhatsApp o tempo todo. Isso a torna incompatível com plataformas serverless (Vercel, Netlify, Cloudflare Workers) — a função encerra, a sessão cai e o pareamento se perde.
+
+O `Dockerfile` sobe o painel e o bridge no mesmo container. O bridge escuta apenas em `127.0.0.1:8080`, alcançável só pelo painel; nada dele fica exposto.
+
+### Railway
+
+```bash
+railway login
+railway init                 # cria o projeto
+railway up                   # build e deploy a partir do Dockerfile
+railway domain               # gera a URL pública
+```
+
+Depois, no painel do Railway:
+
+1. **Volume** — monte um volume em `/data`. Sem ele, as credenciais da sessão e os agendamentos somem a cada deploy, e você precisa parear de novo.
+2. **Variáveis** — `WHATSAPP_API_KEY` (qualquer valor forte; é usada só entre painel e bridge dentro do container) e, quando quiser proteger o acesso, `ADMIN_TOKEN`.
+3. **Réplicas: 1.** Já vem fixo em `railway.json`. Com duas réplicas você teria duas sessões do WhatsApp e mensagens duplicadas em cada grupo.
+
+`PORT` é injetada pela plataforma e o `application.yml` já a respeita.
+
+### Variáveis no deploy
+
+| Variável | Valor |
+|---|---|
+| `WHATSAPP_API_KEY` | chave forte, compartilhada entre painel e bridge |
+| `ADMIN_TOKEN` | exigido no header `X-Admin-Token`; vazio deixa a API aberta |
+| `DATA_DIR` | `/data` (padrão da imagem) |
+| `APP_TIMEZONE` | `America/Sao_Paulo` |
+
+### Antes de expor publicamente
+
+Quem alcança a URL sem `ADMIN_TOKEN` pode listar seus grupos, disparar mensagens em nome do WhatsApp pareado e derrubar a sessão. Defina `ADMIN_TOKEN` assim que sair da fase de testes.

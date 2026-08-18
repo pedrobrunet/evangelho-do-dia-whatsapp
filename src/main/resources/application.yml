@@ -7,7 +7,8 @@ spring:
       write-dates-as-timestamps: false
 
 server:
-  port: ${SERVER_PORT:8081}
+  # PORT e injetada pela plataforma de deploy; SERVER_PORT serve ao uso local.
+  port: ${PORT:${SERVER_PORT:8081}}
   # Em producao, mantenha atras de um proxy com TLS.
   error:
     include-stacktrace: never
@@ -15,6 +16,7 @@ server:
 
 app:
   timezone: ${APP_TIMEZONE:America/Sao_Paulo}
+  arquivo-agendamentos: ${APP_AGENDAMENTOS_FILE:data/agendamentos.json}
   arquivo-configuracao: ${APP_CONFIG_FILE:data/configuracao.json}
   liturgia-url: ${LITURGIA_URL:https://liturgiadiaria.cancaonova.com/pp/}
   liturgia-api-url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}

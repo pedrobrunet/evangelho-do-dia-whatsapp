@@ -1,0 +1,18 @@
+# Build local — a imagem compila do zero
+target/
+whatsapp-bridge/node_modules/
+
+# Dados e segredos que jamais devem entrar na imagem
+.env
+.env.local
+data/
+whatsapp-bridge/sessoes/
+
+# Metadados
+.git/
+.gitignore
+.idea/
+.vscode/
+*.log
+README.md
+docker-compose.yml
