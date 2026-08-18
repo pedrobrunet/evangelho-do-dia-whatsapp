@@ -201,6 +201,8 @@
     // ===============================================================
     const API = '/api';
     let pollingConexao = null;
+    /** Numero usado no pareamento por codigo, preservado entre as renovacoes. */
+    let numeroPareamento = null;
 
     function headers() {
         const h = {'Content-Type': 'application/json'};
@@ -334,10 +336,36 @@
         }
     }
 
-    /** Enquanto aguarda o pareamento, consulta o estado a cada 3 segundos. */
+    /**
+     * Enquanto aguarda o pareamento, renova o material a cada 8 segundos.
+     *
+     * Nao basta consultar o estado: o QR code do WhatsApp expira em poucos
+     * segundos, entao a tela precisa exibir sempre o mais recente. O endpoint
+     * de inicio devolve CONECTADO assim que o celular parear, encerrando o ciclo.
+     */
     function iniciarPolling() {
         pararPolling();
-        pollingConexao = setInterval(atualizarConexao, 3000);
+        pollingConexao = setInterval(renovarPareamento, 8000);
+    }
+
+    async function renovarPareamento() {
+        try {
+            const status = await chamar(`${API}/conexao/iniciar`, {
+                method: 'POST',
+                body: JSON.stringify(numeroPareamento ? {numero: numeroPareamento} : {})
+            });
+            renderizarConexao(status);
+
+            if (status.estado === 'CONECTADO') {
+                pararPolling();
+                numeroPareamento = null;
+                mostrarAlerta('WhatsApp conectado! Escolha o grupo no passo 2.', 'sucesso');
+                await carregarGrupos();
+            }
+        } catch (e) {
+            pararPolling();
+            mostrarAlerta(e.message, 'erro');
+        }
     }
 
     function pararPolling() {
@@ -348,6 +376,7 @@
     }
 
     async function iniciarConexao(numero) {
+        numeroPareamento = numero;
         ocupado(true, 'btnQrCode', 'btnCodigo');
         mostrarAlerta('Solicitando o pareamento...', 'info');
         try {

@@ -21,11 +21,24 @@ Aplicação Spring Boot que envia o Evangelho do dia para um grupo de WhatsApp e
 | WhatsApp | Evolution API (pareamento, grupos e envio), orquestrada pelo backend |
 | Frontend | HTML + JavaScript puro + Tailwind CSS (CDN), página única |
 
-### Por que a Evolution API
+### Por que existe um serviço Node ao lado
 
-Não existe biblioteca Java madura que implemente o protocolo do WhatsApp Web — as implementações reais são Node (Baileys). A Evolution API cobre essa parte: é ela quem gera o QR code, mantém a sessão e envia as mensagens. O backend Java a orquestra via HTTP, de forma que **quem usa o painel nunca precisa acessá-la diretamente**.
+Não existe biblioteca Java madura que implemente o protocolo do WhatsApp Web — as implementações reais são Node (Baileys). Algo precisa gerar o QR code, manter a sessão e despachar as mensagens. O backend Java orquestra esse serviço via HTTP, de forma que **quem usa o painel nunca o acessa diretamente**.
 
-Ela sobe junto via Docker:
+Duas opções, mesmo contrato HTTP — escolha uma:
+
+**A) Bridge incluso (sem Docker).** Serviço Node de um arquivo, usando Baileys direto. Veja [`whatsapp-bridge/`](whatsapp-bridge/).
+
+```bash
+cp .env.example .env                       # defina WHATSAPP_API_KEY e WHATSAPP_SIMULAR=false
+cd whatsapp-bridge && npm install
+API_KEY=<a mesma chave> npm start          # bridge em 127.0.0.1:8080
+
+# em outro terminal, na raiz do projeto:
+mvn spring-boot:run                        # painel em http://localhost:8081
+```
+
+**B) Evolution API (Docker).** Mais completa, se você já a usa ou quer múltiplas instâncias:
 
 ```bash
 cp .env.example .env      # defina WHATSAPP_API_KEY com um valor forte
@@ -36,6 +49,8 @@ mvn spring-boot:run       # painel em http://localhost:8081
 Abra http://localhost:8081 e siga os três passos.
 
 > Para explorar a interface sem conectar um WhatsApp real, deixe `WHATSAPP_SIMULAR=true` (padrão): o backend devolve uma conexão e grupos fictícios, e os envios só vão para o log.
+
+> **Aviso:** Baileys e Evolution API são bibliotecas não oficiais. Automatizar uma conta pessoal pode violar os Termos de Serviço do WhatsApp e levar ao bloqueio do número. Para uso comercial, considere a API oficial do WhatsApp Business.
 
 ## Estrutura do projeto
 
@@ -74,6 +89,10 @@ src/main/java/com/botwpp/evangelho/
 src/main/resources/
 ├── application.yml
 └── static/index.html                # painel de 3 passos
+
+whatsapp-bridge/                     # opcional: alternativa Node à Evolution API
+├── server.js                        # Baileys + Express, mesmo contrato HTTP
+└── README.md
 ```
 
 ## Configuração
@@ -129,7 +148,8 @@ Este repositório é público. Pontos observados no código:
 - **Nenhum segredo versionado.** `WHATSAPP_API_KEY` e `ADMIN_TOKEN` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
 - **A API nunca devolve credenciais.** `/api/configuracao` expõe somente horário, grupo e status.
 - **`/api/**` protegido por `X-Admin-Token`** quando `ADMIN_TOKEN` está definido, com comparação em tempo constante (`MessageDigest.isEqual`). Sem o token a API fica aberta e a aplicação registra um aviso na subida.
-- **A Evolution API escuta só em `127.0.0.1`** no `docker-compose.yml`. Quem alcança essa porta com a API key controla o WhatsApp pareado.
+- **O serviço de WhatsApp escuta só em `127.0.0.1`**, tanto no `docker-compose.yml` quanto no bridge. Quem alcança essa porta com a API key controla o WhatsApp pareado.
+- **As credenciais da sessão pareada** (`whatsapp-bridge/sessoes/`) estão no `.gitignore` e devem ser tratadas como segredo: quem copia essa pasta assume a conta conectada.
 - **Sem vazamento de detalhe interno.** `include-stacktrace: never` e o `TratadorDeErros` devolvem mensagens curtas; o detalhe fica no log.
 - **Logs sem PII.** O ID do grupo é mascarado antes de ser logado; a API key nunca é registrada.
 - **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `ConfiguracaoRequest`.

@@ -7,6 +7,13 @@ target/
 # Dados persistidos em runtime (contem o ID do grupo de destino)
 data/
 
+# Node / bridge WhatsApp
+node_modules/
+
+# CRITICO: credenciais da sessao do WhatsApp pareado.
+# Quem obtem estes arquivos controla a conta conectada.
+whatsapp-bridge/sessoes/
+
 # Segredos — nunca versionar
 .env
 .env.local
