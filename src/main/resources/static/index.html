@@ -203,6 +203,8 @@
     let pollingConexao = null;
     /** Numero usado no pareamento por codigo, preservado entre as renovacoes. */
     let numeroPareamento = null;
+    /** Mantem o bloco de pareamento visivel enquanto o usuario conclui no celular. */
+    let emPareamento = false;
 
     function headers() {
         const h = {'Content-Type': 'application/json'};
@@ -272,7 +274,9 @@
         document.getElementById('descricaoConexao').textContent = status.descricao;
 
         const conectado = status.estado === 'CONECTADO';
-        const aguardando = status.estado === 'AGUARDANDO_LEITURA';
+        // Durante o pareamento o bloco permanece na tela mesmo quando uma
+        // consulta de estado devolve DESCONECTADO — o usuario ainda esta digitando.
+        const aguardando = status.estado === 'AGUARDANDO_LEITURA' || (emPareamento && !conectado);
 
         const estilos = {
             CONECTADO: ['bg-emerald-100 text-emerald-700', 'conectado'],
@@ -288,22 +292,25 @@
         mostrar('blocoConectado', conectado);
         mostrar('blocoPareamento', aguardando);
 
+        // Atualiza QR e codigo apenas quando a resposta traz material novo.
+        // Consultas de estado nao trazem — e apagar a tela faria o codigo
+        // sumir enquanto o usuario o digita.
         if (aguardando) {
             const qr = document.getElementById('qrCode');
             if (status.qrCodeBase64) {
                 qr.src = status.qrCodeBase64;
                 qr.classList.remove('hidden');
-            } else {
-                qr.classList.add('hidden');
             }
 
-            const temCodigo = !!status.codigoPareamento;
-            mostrar('blocoCodigo', temCodigo);
-            if (temCodigo) {
+            if (status.codigoPareamento) {
                 document.getElementById('codigoPareamento').textContent = status.codigoPareamento;
+                mostrar('blocoCodigo', true);
+                qr.classList.add('hidden');
                 document.getElementById('passoFinal').innerHTML =
                     'Escolha <strong>Conectar com numero de telefone</strong> e digite o codigo';
             }
+        } else {
+            emPareamento = false;
         }
 
         liberarPassos(conectado);
@@ -350,15 +357,19 @@
 
     async function renovarPareamento() {
         try {
-            const status = await chamar(`${API}/conexao/iniciar`, {
-                method: 'POST',
-                body: JSON.stringify(numeroPareamento ? {numero: numeroPareamento} : {})
-            });
+            // Codigo de pareamento: apenas verifica se ja conectou. Pedir um novo
+            // codigo invalidaria o que o usuario esta digitando na tela.
+            // QR code: pede material novo, porque o WhatsApp expira o anterior.
+            const status = numeroPareamento
+                ? await chamar(`${API}/conexao`)
+                : await chamar(`${API}/conexao/iniciar`, {method: 'POST', body: JSON.stringify({})});
+
             renderizarConexao(status);
 
             if (status.estado === 'CONECTADO') {
                 pararPolling();
                 numeroPareamento = null;
+                emPareamento = false;
                 mostrarAlerta('WhatsApp conectado! Escolha o grupo no passo 2.', 'sucesso');
                 await carregarGrupos();
             }
@@ -387,8 +398,11 @@
             renderizarConexao(status);
 
             if (status.estado === 'AGUARDANDO_LEITURA') {
+                emPareamento = true;
                 iniciarPolling();
-                mostrarAlerta('Pareamento gerado. Conclua no celular.', 'sucesso');
+                mostrarAlerta(status.codigoPareamento
+                    ? 'Codigo gerado. Ele vale ate voce concluir no celular — nao sera trocado.'
+                    : 'QR code gerado. Leia no celular.', 'sucesso');
             } else if (status.estado === 'CONECTADO') {
                 mostrarAlerta(status.descricao, 'sucesso');
                 await carregarGrupos();
@@ -418,6 +432,9 @@
     document.getElementById('btnDesconectar').addEventListener('click', async () => {
         if (!confirm('Desconectar o WhatsApp? Sera necessario parear novamente.')) return;
         try {
+            pararPolling();
+            emPareamento = false;
+            numeroPareamento = null;
             const resposta = await chamar(`${API}/conexao`, {method: 'DELETE'});
             mostrarAlerta(resposta.mensagem, 'sucesso');
             await atualizarConexao();
