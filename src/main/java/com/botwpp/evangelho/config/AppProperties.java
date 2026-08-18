@@ -42,20 +42,6 @@ public class AppProperties {
     /** API publica de liturgia usada como fallback quando o scraping falha. */
     private String liturgiaApiUrl = "https://liturgia.up.railway.app/v2/";
 
-    /**
-     * Token exigido no header X-Admin-Token para acessar /api/**.
-     * Vazio (padrao) libera o acesso — adequado apenas para uso local.
-     */
-    private String adminToken = "";
-
-    public String getAdminToken() {
-        return adminToken;
-    }
-
-    public void setAdminToken(String adminToken) {
-        this.adminToken = adminToken;
-    }
-
     public String getTimezone() {
         return timezone;
     }

@@ -48,12 +48,16 @@ COPY docker-entrypoint.sh .
 RUN tr -d '\r' < docker-entrypoint.sh > /tmp/e.sh && mv /tmp/e.sh docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 # Diretorio dos dados que precisam sobreviver a um redeploy:
-# credenciais da sessao do WhatsApp e os agendamentos.
+# credenciais da sessao do WhatsApp, as contas e os agendamentos.
 # Monte um volume da plataforma aqui, senao o pareamento se perde a cada deploy.
 ENV DATA_DIR=/data
 VOLUME ["/data"]
 
+# O caminho das contas precisa apontar para o volume: no default relativo
+# (data/usuarios.json) o arquivo nasce dentro do container e some no proximo
+# deploy, levando junto todos os cadastros.
 ENV APP_AGENDAMENTOS_FILE=/data/agendamentos.json \
+    APP_USUARIOS_FILE=/data/usuarios.json \
     WHATSAPP_PROVIDER=EVOLUTION \
     WHATSAPP_API_URL=http://127.0.0.1:8080 \
     WHATSAPP_INSTANCE=evangelho \
