@@ -116,3 +116,7 @@ Cobrem as decisões do scheduler (horário atingido, desativado, envio duplicado
 ## Observações sobre o scraping
 
 `LiturgiaService` busca o cabeçalho "Evangelho" no HTML por conteúdo, não por seletor CSS fixo, o que reduz a quebra em mudanças de layout. Se ainda assim falhar, o fallback para a API pública de liturgia entra automaticamente — o registro no log indica qual fonte foi usada.
+
+## Licença
+
+Distribuído sob a licença MIT. Veja [LICENSE](LICENSE) para os termos completos.
