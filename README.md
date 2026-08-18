@@ -1,16 +1,41 @@
 # Evangelho do Dia — Bot para WhatsApp
 
-Aplicação Spring Boot que busca o Evangelho do dia e o envia automaticamente para um grupo de WhatsApp em um horário programado, configurável por uma página web simples.
+Aplicação Spring Boot que envia o Evangelho do dia para um grupo de WhatsApp em um horário programado. O usuário conecta o WhatsApp pelo próprio painel (QR code ou código de pareamento), escolhe o grupo numa lista e define o horário — o conteúdo é buscado automaticamente todos os dias.
+
+## Fluxo de uso
+
+```
+1. Conectar o WhatsApp   →  QR code ou código de pareamento, direto no painel
+2. Escolher o grupo      →  lista carregada da conta conectada, sem digitar IDs
+3. Programar o horário   →  único campo que o usuário define
+                            (o conteúdo vem da API de liturgia)
+```
 
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
 | Backend | Java 17, Spring Boot 3.3, Maven |
-| Scraping | JSoup (Canção Nova) + API pública de liturgia como fallback |
+| Conteúdo | JSoup (scraping da Canção Nova) + API pública de liturgia como fallback |
 | Agendamento | `@Scheduled` do Spring |
-| Integração | Evolution API ou webhook genérico (POST HTTP) |
+| WhatsApp | Evolution API (pareamento, grupos e envio), orquestrada pelo backend |
 | Frontend | HTML + JavaScript puro + Tailwind CSS (CDN), página única |
+
+### Por que a Evolution API
+
+Não existe biblioteca Java madura que implemente o protocolo do WhatsApp Web — as implementações reais são Node (Baileys). A Evolution API cobre essa parte: é ela quem gera o QR code, mantém a sessão e envia as mensagens. O backend Java a orquestra via HTTP, de forma que **quem usa o painel nunca precisa acessá-la diretamente**.
+
+Ela sobe junto via Docker:
+
+```bash
+cp .env.example .env      # defina WHATSAPP_API_KEY com um valor forte
+docker compose up -d      # Evolution API em 127.0.0.1:8080
+mvn spring-boot:run       # painel em http://localhost:8081
+```
+
+Abra http://localhost:8081 e siga os três passos.
+
+> Para explorar a interface sem conectar um WhatsApp real, deixe `WHATSAPP_SIMULAR=true` (padrão): o backend devolve uma conexão e grupos fictícios, e os envios só vão para o log.
 
 ## Estrutura do projeto
 
@@ -23,6 +48,7 @@ src/main/java/com/botwpp/evangelho/
 │   ├── WhatsappProperties.java      # prefixo "whatsapp"
 │   └── TokenAdminFilter.java        # protege /api/** com X-Admin-Token
 ├── controller/
+│   ├── ConexaoController.java       # QR code, pareamento, status e grupos
 │   ├── ConfiguracaoController.java  # GET/PUT /api/configuracao
 │   ├── EvangelhoController.java     # prévia, recarregar e envio manual
 │   └── TratadorDeErros.java         # @RestControllerAdvice
@@ -31,30 +57,24 @@ src/main/java/com/botwpp/evangelho/
 │   └── RespostaApi.java             # envelope {sucesso, mensagem, dados}
 ├── model/
 │   ├── ConfiguracaoEnvio.java       # horário, destino, ativo, último envio
-│   └── Evangelho.java               # record com o texto do dia
+│   ├── Evangelho.java               # record com o texto do dia
+│   ├── Grupo.java                   # grupo disponível na conta conectada
+│   └── StatusConexao.java           # estado do pareamento + QR/código
 ├── repository/
 │   └── ConfiguracaoRepository.java  # persistência em JSON (data/configuracao.json)
 ├── scheduler/
 │   └── EnvioScheduler.java          # cron a cada minuto + guarda de idempotência
 └── service/
+    ├── EvolutionApiClient.java      # cliente HTTP único da Evolution API
+    ├── ConexaoWhatsappService.java  # instância, QR code, status e grupos
     ├── LiturgiaService.java         # scraping JSoup + fallback via API
-    ├── WhatsappService.java         # POST para Evolution API / webhook
+    ├── WhatsappService.java         # envio (Evolution ou webhook genérico)
     └── EnvioEvangelhoService.java   # orquestra busca → formatação → envio
 
 src/main/resources/
 ├── application.yml
-└── static/index.html                # frontend (SPA de página única)
+└── static/index.html                # painel de 3 passos
 ```
-
-## Como rodar
-
-```bash
-mvn spring-boot:run
-```
-
-Acesse http://localhost:8081
-
-Por padrão `whatsapp.simular=true`: a mensagem é apenas escrita no log, sem chamar nenhuma API externa. Ideal para testar antes de conectar a instância real.
 
 ## Configuração
 
@@ -62,21 +82,32 @@ Todas as variáveis têm default seguro. Copie `.env.example` e exporte no ambie
 
 | Variável | Descrição |
 |---|---|
-| `SERVER_PORT` | Porta HTTP (padrão 8081) |
+| `SERVER_PORT` | Porta HTTP do painel (padrão 8081) |
 | `APP_TIMEZONE` | Fuso do agendamento (padrão America/Sao_Paulo) |
 | `ADMIN_TOKEN` | Token exigido no header `X-Admin-Token` para `/api/**` |
-| `WHATSAPP_PROVIDER` | `EVOLUTION` ou `WEBHOOK` |
-| `WHATSAPP_API_URL` | URL base da Evolution API ou do webhook |
-| `WHATSAPP_INSTANCE` | Nome da instância na Evolution API |
-| `WHATSAPP_API_KEY` | Chave da API — **nunca versione** |
-| `WHATSAPP_SIMULAR` | `true` desliga a chamada externa |
+| `WHATSAPP_PROVIDER` | `EVOLUTION` (padrão) ou `WEBHOOK` |
+| `WHATSAPP_API_URL` | URL da Evolution API (padrão http://localhost:8080) |
+| `WHATSAPP_INSTANCE` | Nome da instância criada no pareamento |
+| `WHATSAPP_API_KEY` | Chave da Evolution API — **nunca versione** |
+| `WHATSAPP_SIMULAR` | `true` desliga toda chamada externa |
 
 ## API REST
 
+### Conexão
+
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/configuracao` | Estado atual (horário, destino, último envio) |
-| `PUT` | `/api/configuracao` | Salva `{horarioEnvio, grupoId, ativo}` |
+| `GET` | `/api/conexao` | Estado do pareamento (consultado em polling pelo painel) |
+| `POST` | `/api/conexao/iniciar` | Gera QR code; com `{"numero":"5511..."}` gera código de pareamento |
+| `DELETE` | `/api/conexao` | Encerra a sessão |
+| `GET` | `/api/conexao/grupos` | Grupos da conta conectada, em ordem alfabética |
+
+### Programação e conteúdo
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/configuracao` | Estado atual (horário, grupo, último envio) |
+| `PUT` | `/api/configuracao` | Salva `{horarioEnvio, grupoId, grupoNome, ativo}` |
 | `GET` | `/api/evangelho/hoje` | Evangelho do dia estruturado |
 | `GET` | `/api/evangelho/previa` | Mensagem já formatada para o WhatsApp |
 | `POST` | `/api/evangelho/recarregar` | Limpa o cache e rebusca na fonte |
@@ -88,22 +119,22 @@ Exemplo:
 curl -X PUT http://localhost:8081/api/configuracao \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: $ADMIN_TOKEN" \
-  -d '{"horarioEnvio":"08:00","grupoId":"120363000000000000@g.us","ativo":true}'
+  -d '{"horarioEnvio":"08:00","grupoId":"120363000000000000@g.us","grupoNome":"Paroquia","ativo":true}'
 ```
 
 ## Segurança
 
 Este repositório é público. Pontos observados no código:
 
-- **Nenhum segredo versionado.** `apiKey` e `ADMIN_TOKEN` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
-- **A API nunca devolve credenciais.** `/api/configuracao` expõe somente horário, destino e status.
-- **`/api/**` protegido por `X-Admin-Token`** quando `ADMIN_TOKEN` está definido, com comparação em tempo constante (`MessageDigest.isEqual`). Sem o token definido a API fica aberta e a aplicação registra um aviso na subida — não exponha assim na internet.
+- **Nenhum segredo versionado.** `WHATSAPP_API_KEY` e `ADMIN_TOKEN` vêm apenas de variáveis de ambiente; `.gitignore` cobre `.env`, `data/` e perfis locais.
+- **A API nunca devolve credenciais.** `/api/configuracao` expõe somente horário, grupo e status.
+- **`/api/**` protegido por `X-Admin-Token`** quando `ADMIN_TOKEN` está definido, com comparação em tempo constante (`MessageDigest.isEqual`). Sem o token a API fica aberta e a aplicação registra um aviso na subida.
+- **A Evolution API escuta só em `127.0.0.1`** no `docker-compose.yml`. Quem alcança essa porta com a API key controla o WhatsApp pareado.
 - **Sem vazamento de detalhe interno.** `include-stacktrace: never` e o `TratadorDeErros` devolvem mensagens curtas; o detalhe fica no log.
-- **Logs sem PII.** O número/ID do grupo é mascarado antes de ser logado; a `apiKey` nunca é registrada.
-- **Entrada validada.** `horarioEnvio` e `grupoId` passam por regex no `ConfiguracaoRequest`.
-- **`data/configuracao.json` é ignorado pelo git** por conter o destino real das mensagens.
+- **Logs sem PII.** O ID do grupo é mascarado antes de ser logado; a API key nunca é registrada.
+- **Entrada validada.** `horarioEnvio`, `grupoId` e `grupoNome` passam por regex/tamanho no `ConfiguracaoRequest`.
 
-Antes de expor publicamente: defina `ADMIN_TOKEN`, coloque a aplicação atrás de um proxy com TLS e restrinja a origem do tráfego.
+Um painel conectado envia mensagens em nome do WhatsApp pareado. Antes de expor na internet: defina `ADMIN_TOKEN`, use um proxy com TLS e restrinja a origem do tráfego.
 
 ## Testes
 
@@ -111,11 +142,14 @@ Antes de expor publicamente: defina `ADMIN_TOKEN`, coloque a aplicação atrás 
 mvn test
 ```
 
-Cobrem as decisões do scheduler (horário atingido, desativado, envio duplicado no mesmo dia, janela de tolerância e resiliência a falha) usando `Clock` fixo.
+14 testes cobrindo:
 
-## Observações sobre o scraping
+- **Scheduler** — horário atingido, desativado, envio duplicado no mesmo dia, janela de tolerância e resiliência a falha, com `Clock` fixo.
+- **Conexão** — parsing das respostas da Evolution API nos dois formatos conhecidos, normalização do QR code em data URI, Evolution fora do ar, e listagem/ordenação de grupos.
 
-`LiturgiaService` busca o cabeçalho "Evangelho" no HTML por conteúdo, não por seletor CSS fixo, o que reduz a quebra em mudanças de layout. Se ainda assim falhar, o fallback para a API pública de liturgia entra automaticamente — o registro no log indica qual fonte foi usada.
+## Observações sobre o conteúdo
+
+`LiturgiaService` busca o cabeçalho "Evangelho" no HTML da Canção Nova por conteúdo, não por seletor CSS fixo, o que reduz a quebra em mudanças de layout. Se ainda assim falhar, o fallback para a API pública de liturgia entra automaticamente — o log indica qual fonte foi usada. O resultado é cacheado por dia.
 
 ## Licença
 

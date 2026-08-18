@@ -18,6 +18,9 @@ public class ConfiguracaoEnvio {
     /** ID do grupo (ex.: 120363XXXXXXXXXX@g.us) ou numero no formato 5511999999999. */
     private String grupoId = "";
 
+    /** Nome do grupo escolhido, guardado apenas para exibicao no painel. */
+    private String grupoNome = "";
+
     /** Chave geral: quando false, o scheduler nao dispara nada. */
     private boolean ativo = false;
 
@@ -41,6 +44,14 @@ public class ConfiguracaoEnvio {
 
     public void setGrupoId(String grupoId) {
         this.grupoId = grupoId;
+    }
+
+    public String getGrupoNome() {
+        return grupoNome;
+    }
+
+    public void setGrupoNome(String grupoNome) {
+        this.grupoNome = grupoNome;
     }
 
     public boolean isAtivo() {

@@ -48,6 +48,7 @@ public class ConfiguracaoController {
 
         configuracao.setHorarioEnvio(LocalTime.parse(request.horarioEnvio()));
         configuracao.setGrupoId(request.grupoId().trim());
+        configuracao.setGrupoNome(request.grupoNome() == null ? "" : request.grupoNome().trim());
         configuracao.setAtivo(request.ativo());
 
         repository.salvar(configuracao);
