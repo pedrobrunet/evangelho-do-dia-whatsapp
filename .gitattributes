@@ -1,0 +1,5 @@
+# Scripts e o Dockerfile precisam de LF: com CRLF, o Linux falha com
+# "bad interpreter: /usr/bin/env bash^M" ao iniciar o container.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-entrypoint.sh text eol=lf

@@ -49,6 +49,16 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
+        <!--
+            Apenas o modulo de criptografia do Spring Security, pelo BCrypt.
+            O starter completo traria toda a cadeia de filtros e configuracao
+            de seguranca, desnecessaria para a autenticacao por sessao daqui.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

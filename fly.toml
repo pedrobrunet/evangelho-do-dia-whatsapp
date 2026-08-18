@@ -1,0 +1,48 @@
+# Configuracao de deploy na Fly.io.
+#
+# Escolhida por manter a maquina ligada de verdade: o scheduler precisa
+# existir as 07:00 e o bridge precisa do WebSocket do WhatsApp sempre aberto.
+# Plataformas que hibernam por inatividade derrubariam a sessao pareada.
+
+app = "evangelho-do-dia"
+primary_region = "gru"  # Sao Paulo: menor latencia e mesmo fuso da liturgia
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATA_DIR = "/data"
+  APP_AGENDAMENTOS_FILE = "/data/agendamentos.json"
+  APP_TIMEZONE = "America/Sao_Paulo"
+  WHATSAPP_PROVIDER = "EVOLUTION"
+  WHATSAPP_API_URL = "http://127.0.0.1:8080"
+  WHATSAPP_INSTANCE = "evangelho"
+  WHATSAPP_SIMULAR = "false"
+  # Teto de heap da JVM deixando folga para o processo Node no mesmo container.
+  JAVA_OPTS = "-Xmx320m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
+
+# Credenciais da sessao do WhatsApp e agendamentos.
+# Sem este volume, cada deploy exigiria parear o celular de novo.
+[[mounts]]
+  source = "dados"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8081
+  force_https = true
+
+  # CRITICO: a maquina nao pode ser suspensa. Ao parar, o WhatsApp derruba
+  # o aparelho conectado e o agendamento silenciosamente deixa de disparar.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # 512 MB para acomodar JVM e Node no mesmo container com margem.
+  memory = "512mb"
+
+# Uma unica maquina: duas significariam duas sessoes do WhatsApp e
+# mensagens duplicadas em cada grupo.
+[deploy]
+  strategy = "immediate"

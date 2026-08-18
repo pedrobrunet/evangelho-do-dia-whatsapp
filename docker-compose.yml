@@ -1,0 +1,36 @@
+# Evolution API — servico que implementa o protocolo do WhatsApp Web.
+# E ela quem gera o QR code e o codigo de pareamento; o painel Java apenas a orquestra.
+#
+# Uso:
+#   1. copie .env.example para .env e defina WHATSAPP_API_KEY (valor forte e secreto)
+#   2. docker compose up -d
+#   3. suba o painel com: mvn spring-boot:run
+#
+# SEGURANCA: a porta 8080 nao deve ser exposta na internet. Quem alcanca a
+# Evolution API com a AUTHENTICATION_API_KEY controla o WhatsApp conectado.
+
+services:
+  evolution-api:
+    image: atendai/evolution-api:v2.1.1
+    container_name: evolution-api
+    restart: unless-stopped
+    ports:
+      # Publica apenas em localhost: so o painel na mesma maquina alcanca.
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Mesma chave usada pelo painel na variavel WHATSAPP_API_KEY.
+      AUTHENTICATION_API_KEY: ${WHATSAPP_API_KEY:?defina WHATSAPP_API_KEY no arquivo .env}
+      # Persistencia local em arquivo — suficiente para uma unica instancia.
+      DATABASE_ENABLED: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      # Mantem a sessao pareada entre reinicios do container.
+      CONFIG_SESSION_PHONE_CLIENT: "Evangelho do Dia"
+      CONFIG_SESSION_PHONE_NAME: "Chrome"
+      QRCODE_LIMIT: "10"
+      LOG_LEVEL: "ERROR"
+    volumes:
+      - evolution_instances:/evolution/instances
+
+volumes:
+  evolution_instances:

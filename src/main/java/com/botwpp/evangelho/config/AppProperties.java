@@ -11,8 +11,30 @@ public class AppProperties {
     /** Fuso horario usado pelo scheduler e pela data liturgica. */
     private String timezone = "America/Sao_Paulo";
 
-    /** Arquivo onde a configuracao do usuario e persistida. */
+    /** Arquivo onde os agendamentos sao persistidos. */
+    private String arquivoAgendamentos = "data/agendamentos.json";
+
+    /** Arquivo das contas de acesso. Contem hashes de senha. */
+    private String arquivoUsuarios = "data/usuarios.json";
+
+    public String getArquivoUsuarios() {
+        return arquivoUsuarios;
+    }
+
+    public void setArquivoUsuarios(String arquivoUsuarios) {
+        this.arquivoUsuarios = arquivoUsuarios;
+    }
+
+    /** Arquivo da versao de agendamento unico, lido apenas para migracao. */
     private String arquivoConfiguracao = "data/configuracao.json";
+
+    public String getArquivoAgendamentos() {
+        return arquivoAgendamentos;
+    }
+
+    public void setArquivoAgendamentos(String arquivoAgendamentos) {
+        this.arquivoAgendamentos = arquivoAgendamentos;
+    }
 
     /** URL da pagina da Cancao Nova usada no scraping. */
     private String liturgiaUrl = "https://liturgiadiaria.cancaonova.com/pp/";

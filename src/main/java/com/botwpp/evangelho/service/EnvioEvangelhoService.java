@@ -1,8 +1,8 @@
 package com.botwpp.evangelho.service;
 
-import com.botwpp.evangelho.model.ConfiguracaoEnvio;
+import com.botwpp.evangelho.model.Agendamento;
 import com.botwpp.evangelho.model.Evangelho;
-import com.botwpp.evangelho.repository.ConfiguracaoRepository;
+import com.botwpp.evangelho.repository.AgendamentoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -13,12 +13,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * Orquestra o caso de uso "enviar o Evangelho do dia":
- * busca o texto, formata a mensagem e delega o envio.
+ * Orquestra o caso de uso "enviar o Evangelho do dia": busca o texto, formata
+ * a mensagem e delega o envio pela sessao de WhatsApp do dono.
  *
- * Fica entre o scheduler e os services de infraestrutura para que
- * o disparo manual (botao "Enviar agora") e o automatico compartilhem
- * exatamente a mesma regra.
+ * Fica entre o scheduler e os services de infraestrutura para que o disparo
+ * manual e o automatico compartilhem a mesma regra.
  */
 @Service
 public class EnvioEvangelhoService {
@@ -30,12 +29,12 @@ public class EnvioEvangelhoService {
 
     private final LiturgiaService liturgiaService;
     private final WhatsappService whatsappService;
-    private final ConfiguracaoRepository repository;
+    private final AgendamentoRepository repository;
     private final Clock clock;
 
     public EnvioEvangelhoService(LiturgiaService liturgiaService,
                                  WhatsappService whatsappService,
-                                 ConfiguracaoRepository repository,
+                                 AgendamentoRepository repository,
                                  Clock clock) {
         this.liturgiaService = liturgiaService;
         this.whatsappService = whatsappService;
@@ -44,39 +43,61 @@ public class EnvioEvangelhoService {
     }
 
     /**
-     * Executa o envio para o grupo configurado e registra o resultado.
+     * Executa o envio de um agendamento pela sessao do usuario dono e registra
+     * o resultado no proprio agendamento.
      *
-     * @return mensagem de status legivel para o frontend
+     * @param instancia  sessao de WhatsApp do dono
+     * @return mensagem de status legivel para o painel
      * @throws IllegalStateException se a busca ou o envio falharem
      */
-    public String enviarParaGrupoConfigurado() {
-        ConfiguracaoEnvio configuracao = repository.buscar();
-
-        if (configuracao.getGrupoId() == null || configuracao.getGrupoId().isBlank()) {
-            throw new IllegalStateException("Nenhum grupo/numero de destino configurado.");
+    public String enviar(String instancia, Agendamento agendamento) {
+        if (agendamento.getGrupoId() == null || agendamento.getGrupoId().isBlank()) {
+            throw new IllegalStateException("Agendamento sem grupo de destino.");
         }
 
         Evangelho evangelho = liturgiaService.buscarEvangelhoDoDia();
         String mensagem = formatarMensagem(evangelho);
 
         try {
-            whatsappService.enviarMensagem(configuracao.getGrupoId(), mensagem);
+            whatsappService.enviarMensagem(instancia, agendamento.getGrupoId(), mensagem);
 
-            configuracao.setUltimoEnvio(LocalDate.now(clock));
-            String status = "Enviado com sucesso em "
-                    + LocalDate.now(clock).format(DATA_EXTENSO) + " (" + evangelho.referencia() + ").";
-            configuracao.setUltimoStatus(status);
-            repository.salvar(configuracao);
+            agendamento.setUltimoEnvio(LocalDate.now(clock));
+            String status = "Enviado em " + LocalDate.now(clock).format(DATA_EXTENSO)
+                    + " (" + evangelho.referencia() + ").";
+            agendamento.setUltimoStatus(status);
+            repository.atualizar();
 
-            log.info("Envio concluido: {}", status);
+            log.info("Envio concluido para {}: {}", agendamento.descricao(), status);
             return status;
 
         } catch (RuntimeException e) {
-            // Registra a falha sem marcar ultimoEnvio: o scheduler tentara de novo no proximo minuto.
-            configuracao.setUltimoStatus("Falha no ultimo envio: " + e.getMessage());
-            repository.salvar(configuracao);
+            // Registra a falha sem marcar ultimoEnvio: o scheduler tentara de novo
+            // nos proximos minutos, enquanto durar a janela de tolerancia.
+            agendamento.setUltimoStatus("Falha no ultimo envio: " + e.getMessage());
+            repository.atualizar();
             throw e;
         }
+    }
+
+    /**
+     * Envio avulso: dispara o Evangelho de hoje para um grupo sem passar por
+     * um agendamento. Nao registra ultimoEnvio em lugar nenhum, justamente
+     * para nao interferir na programacao automatica — um envio manual as 15h
+     * nao deve impedir o agendamento das 20h de acontecer.
+     *
+     * @return mensagem de status legivel para o painel
+     */
+    public String enviarAvulso(String instancia, String grupoId) {
+        if (grupoId == null || grupoId.isBlank()) {
+            throw new IllegalArgumentException("Informe o grupo de destino.");
+        }
+
+        Evangelho evangelho = liturgiaService.buscarEvangelhoDoDia();
+        whatsappService.enviarMensagem(instancia, grupoId, formatarMensagem(evangelho));
+
+        String status = "Enviado agora (" + evangelho.referencia() + ").";
+        log.info("Envio manual concluido: {}", status);
+        return status;
     }
 
     /**
@@ -101,7 +122,7 @@ public class EnvioEvangelhoService {
                 );
     }
 
-    /** Pre-visualizacao usada pelo frontend antes de disparar de fato. */
+    /** Pre-visualizacao usada pelo painel antes de disparar de fato. */
     public String previsualizarMensagem() {
         return formatarMensagem(liturgiaService.buscarEvangelhoDoDia());
     }
